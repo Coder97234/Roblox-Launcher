@@ -14,7 +14,7 @@ type LauncherContextValue = {
   running: boolean;
   result: LaunchResult | null;
   error: ApiError | null;
-  run: (experienceId?: string | null, experienceName?: string | null) => Promise<LaunchResult | null>;
+  run: (placeId?: string | null, placeName?: string | null) => Promise<LaunchResult | null>;
   clear: () => void;
 };
 
@@ -27,23 +27,23 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const { notify } = useNotifications();
 
   const run = useCallback(
-    async (experienceId: string | null = null, experienceName: string | null = null) => {
+    async (placeId: string | null = null, placeName: string | null = null) => {
       setRunning(true);
       setError(null);
       try {
-        const outcome = await api.launch(experienceId);
+        const outcome = await api.launch(placeId);
         setResult(outcome);
         if (outcome.outcome === 'succeeded') {
           notify({
-            title: 'Roblox started',
-            description: experienceName
-              ? `Cordial is starting ${experienceName}.`
-              : 'Cordial was asked to start Roblox; its output is in the Xenity log.',
+            title: 'Roblox Studio started',
+            description: placeName
+              ? `Studio is opening ${placeName} through Wine.`
+              : 'Studio was started through Wine; its output is in the Xenity log.',
             tone: 'success',
           });
         } else {
           notify({
-            title: 'Launch failed',
+            title: 'Studio did not start',
             description: outcome.error?.what ?? 'The launch sequence stopped early.',
             tone: 'danger',
           });
@@ -59,7 +59,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
                 'Open Diagnostics and retry the launch.',
               );
         setError(apiError);
-        notify({ title: 'Launch failed', description: apiError.what, tone: 'danger' });
+        notify({ title: 'Studio did not start', description: apiError.what, tone: 'danger' });
         return null;
       } finally {
         setRunning(false);

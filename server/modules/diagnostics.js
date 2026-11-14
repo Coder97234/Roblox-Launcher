@@ -86,17 +86,16 @@ export function buildReportText() {
   }
   lines.push('');
 
-  lines.push('[ENGINE]');
-  const engine = runtime.engine;
-  lines.push(`Engine: ${engine.engine} (${engine.licence}) — ${engine.present ? 'installed' : 'not installed'}`);
-  if (engine.command) lines.push(`Command: ${engine.command}`);
-  lines.push(`Engine version: ${engine.version ?? 'unknown'}`);
-  lines.push(`Install method: ${engine.kind ?? 'unknown'}`);
-  lines.push(
-    `Build store: ${engine.store.root ?? 'none'} — ${engine.store.builds.length} build(s)`,
-  );
-  lines.push(`Runnable build: ${engine.runnable ? engine.build?.version : 'none'}`);
-  lines.push(`Running engine processes: ${engine.instances}`);
+  lines.push('[STUDIO]');
+  const studio = runtime.studio;
+  lines.push(`Studio: ${studio.name} — ${studio.studio.installed ? 'installed' : 'not installed'}`);
+  if (studio.studio.exe) lines.push(`Executable: ${studio.studio.exe}`);
+  lines.push(`Studio version: ${studio.studio.version ?? 'unknown'}`);
+  lines.push(`Wine: ${studio.wine.present ? studio.wine.version ?? 'present' : 'not installed'}`);
+  if (studio.wine.binary) lines.push(`Wine binary: ${studio.wine.binary}`);
+  lines.push(`Wine prefix: ${studio.prefix.path} (${studio.prefix.initialized ? 'initialised' : 'not initialised'})`);
+  lines.push(`DXVK enabled: ${studio.dxvk ? 'yes' : 'no'} · renderer preference: ${studio.renderer}`);
+  lines.push(`Running Studio processes: ${studio.instances}`);
   lines.push('');
 
   lines.push('[INSTALLATION]');
@@ -107,7 +106,7 @@ export function buildReportText() {
       `Dependency ${check.binary} (${check.package}): ${check.present ? 'present' : 'missing'}${check.required ? ' [required]' : ''}`,
     );
   }
-  lines.push(`Application bundle: ${installation.applications.present ? installation.applications.baseApk : 'none'}`);
+  lines.push(`Place files in ${installation.places.directory}: ${installation.places.count}`);
   lines.push('');
 
   lines.push('[RECENT ERRORS]');

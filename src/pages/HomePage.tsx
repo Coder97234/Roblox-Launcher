@@ -87,18 +87,18 @@ export function HomePage() {
               : 'Collecting system information.'}
           </p>
           <div className="hero__chips">
+            <StatusPill tone={runtime?.studio.wine.present ? 'ok' : 'warn'}>
+              {runtime?.studio.wine.present
+                ? `Wine ${runtime.studio.wine.version ?? 'detected'}`
+                : 'Wine not installed'}
+            </StatusPill>
             <StatusPill tone={runtime?.present ? 'ok' : 'warn'}>
               {runtime?.present
-                ? `${runtime.backendName} ${runtime.engine.version ?? ''} detected`.replace('  ', ' ').trim()
-                : 'Cordial engine not installed'}
-            </StatusPill>
-            <StatusPill tone={installation?.engine.runnable ? 'ok' : 'warn'}>
-              {installation?.engine.runnable
-                ? `Roblox ${installation.engine.build?.version ?? 'build'} ready`
-                : 'Roblox build missing'}
+                ? `Roblox Studio ${runtime.studio.studio.version ?? ''}`.trim()
+                : 'Roblox Studio not installed'}
             </StatusPill>
             <StatusPill tone={runtime?.available ? 'ok' : 'muted'}>
-              {runtime?.available ? 'Launch ready' : 'Launch blocked'}
+              {runtime?.available ? 'Studio ready' : 'Studio blocked'}
             </StatusPill>
           </div>
         </div>
@@ -124,13 +124,13 @@ export function HomePage() {
         <Panel className="launch-card" glow>
           <div className="launch-card__top">
             <div>
-              <h2 className="launch-card__title">Roblox</h2>
+              <h2 className="launch-card__title">Roblox Studio</h2>
               <p className="launch-card__subtitle">
                 {installation?.summary ?? 'Checking installation state.'}
               </p>
             </div>
             <StatusPill tone={runtime?.available ? 'ok' : 'warn'}>
-              {runtime?.available ? 'Launch ready' : 'Launch blocked'}
+              {runtime?.available ? 'Studio ready' : 'Studio blocked'}
             </StatusPill>
           </div>
 
@@ -138,11 +138,11 @@ export function HomePage() {
             className="play-button"
             onClick={() => void run(null)}
             disabled={running}
-            aria-label="Launch Roblox"
+            aria-label="Open Roblox Studio"
           >
             <span className="play-button__ring" aria-hidden="true" />
             {running ? <Spinner size={26} /> : <PlayIcon size={30} />}
-            <span className="play-button__label">{running ? 'Checking…' : 'Play'}</span>
+            <span className="play-button__label">{running ? 'Checking…' : 'Open Studio'}</span>
           </button>
 
           <ul className="launch-card__facts">
@@ -153,16 +153,18 @@ export function HomePage() {
               </strong>
             </li>
             <li>
-              <span>Engine</span>
+              <span>Wine</span>
               <strong>
-                {runtime?.present
-                  ? `${runtime.backendName} ${runtime.engine.version ?? ''}`.trim()
+                {runtime?.studio.wine.present
+                  ? runtime.studio.wine.version ?? 'present'
                   : 'not installed'}
               </strong>
             </li>
             <li>
-              <span>Last launch</span>
-              <strong>{lastLaunch ? relativeTime(lastLaunch.at) : 'never'}</strong>
+              <span>Studio</span>
+              <strong>
+                {runtime?.present ? runtime.studio.studio.version ?? 'installed' : 'not installed'}
+              </strong>
             </li>
           </ul>
 
@@ -224,7 +226,7 @@ export function HomePage() {
               <PlayIcon size={18} />
             </span>
             <span className="quick-action__text">
-              <span className="quick-action__title">Launch Roblox</span>
+              <span className="quick-action__title">Open Roblox Studio</span>
               <span className="quick-action__hint">Runs the full launch sequence</span>
             </span>
           </button>
@@ -263,10 +265,10 @@ export function HomePage() {
 
       <Panel
         title="Recent activity"
-        subtitle="Launch attempts recorded by the launcher"
+        subtitle="Studio launches recorded by the launcher"
         actions={
           <Button variant="ghost" size="sm" icon={<SparkIcon size={14} />} onClick={() => navigate('/library')}>
-            Library
+            Places
           </Button>
         }
       >
@@ -275,7 +277,7 @@ export function HomePage() {
             <span className={`activity__dot activity__dot--${lastLaunch.outcome === 'succeeded' ? 'ok' : 'danger'}`} />
             <div className="activity__text">
               <p className="activity__title">
-                {lastLaunch.experienceName ?? 'Roblox'} — {lastLaunch.outcome}
+                {lastLaunch.placeName ?? 'Roblox Studio'} — {lastLaunch.outcome}
               </p>
               <p className="activity__hint">{lastLaunch.message}</p>
             </div>

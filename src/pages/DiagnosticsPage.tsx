@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { bytes, clockTime, percent, uptime } from '../lib/format';
-import type { Diagnostics, EngineDoctorResult } from '../lib/types';
+import type { Diagnostics, StudioDoctorResult } from '../lib/types';
 import { useNotifications } from '../state/notifications';
 import { CopyIcon, DownloadIcon, RefreshIcon, ShieldIcon, WrenchIcon } from '../components/Icons';
 import { Button, ErrorNotice, KeyValue, Panel, Spinner, StatusPill } from '../components/ui';
@@ -12,7 +12,7 @@ export function DiagnosticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ what: string; why: string; next: string } | null>(null);
   const [busy, setBusy] = useState<'copy' | 'export' | 'repair' | 'doctor' | 'open' | null>(null);
-  const [doctor, setDoctor] = useState<EngineDoctorResult | null>(null);
+  const [doctor, setDoctor] = useState<StudioDoctorResult | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -95,13 +95,13 @@ export function DiagnosticsPage() {
     }
   };
 
-  const runEngineDoctor = async () => {
+  const runStudioDoctor = async () => {
     setBusy('doctor');
     try {
-      const result = await api.engineDoctor();
+      const result = await api.studioDoctor();
       setDoctor(result);
       notify({
-        title: result.blocked ? 'Cordial doctor found a blocker' : 'Cordial doctor passed',
+        title: result.blocked ? 'Studio doctor found a blocker' : 'Studio doctor passed',
         description: result.reason ?? '',
         tone: result.blocked ? 'warn' : 'success',
       });
@@ -116,20 +116,20 @@ export function DiagnosticsPage() {
     }
   };
 
-  const openEngine = async () => {
+  const openStudio = async () => {
     setBusy('open');
     try {
-      const result = await api.engineOpen();
+      const result = await api.studioOpen();
       notify({
-        title: result.started ? 'Cordial opened' : 'Cordial did not open',
+        title: result.started ? 'Roblox Studio opened' : 'Roblox Studio did not open',
         description: result.started
-          ? 'Use its Download Roblox button if it has no build yet.'
-          : 'Check the engine output in the Xenity log.',
+          ? 'The editor window is Studio’s own, running through Wine.'
+          : 'Check Wine’s output in the Xenity log.',
         tone: result.started ? 'success' : 'danger',
       });
     } catch (cause) {
       notify({
-        title: 'Cordial could not be opened',
+        title: 'Roblox Studio could not be opened',
         description: cause instanceof ApiError ? cause.what : 'Unknown error',
         tone: 'danger',
       });
@@ -202,24 +202,24 @@ export function DiagnosticsPage() {
 
       <div className="grid grid--main">
         <Panel
-          title="Engine"
-          subtitle="Cordial detection, build store and machine checks"
+          title="Studio & Wine"
+          subtitle="Roblox Studio in Xenity’s Wine prefix, and the machine checks behind it"
           actions={
             <>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => void openEngine()}
+                onClick={() => void openStudio()}
                 disabled={busy !== null || !runtime?.present}
               >
-                Open Cordial
+                Open Studio
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 icon={busy === 'doctor' ? <Spinner size={13} /> : <WrenchIcon size={14} />}
-                onClick={() => void runEngineDoctor()}
-                disabled={busy !== null || !runtime?.present}
+                onClick={() => void runStudioDoctor()}
+                disabled={busy !== null}
               >
                 Run doctor
               </Button>
@@ -230,39 +230,53 @@ export function DiagnosticsPage() {
             <>
               <div className="runtime-head">
                 <StatusPill tone={runtime.available ? 'ok' : 'warn'}>
-                  {runtime.available ? `${runtime.backendName} ready` : 'Launch blocked'}
+                  {runtime.available ? `${runtime.backendName} ready` : 'Studio blocked'}
                 </StatusPill>
                 <span className="muted">state: {runtime.state}</span>
               </div>
               <p className="panel__text">{runtime.reason}</p>
               <div className="kv-grid">
                 <KeyValue
-                  label="Engine"
-                  value={`${runtime.engine.engine} ${runtime.engine.version ?? ''}`.trim()}
-                  hint={runtime.engine.command ?? runtime.engine.install}
-                  tone={runtime.present ? 'ok' : 'warn'}
+                  label="Wine"
+                  value={runtime.studio.wine.present ? runtime.studio.wine.version ?? 'present' : 'not installed'}
+                  hint={runtime.studio.wine.binary ?? runtime.studio.installHint}
+                  tone={runtime.studio.wine.present ? 'ok' : 'warn'}
                 />
                 <KeyValue
-                  label="Install"
-                  value={runtime.engine.kind ?? 'not installed'}
-                  hint={runtime.engine.source ?? ''}
+                  label="Studio"
+                  value={runtime.studio.studio.installed ? runtime.studio.studio.version ?? 'installed' : 'not installed'}
+                  hint={runtime.studio.studio.exe ?? 'Roblox’s installer has not run yet'}
+                  tone={runtime.studio.studio.installed ? 'ok' : 'warn'}
                 />
                 <KeyValue
-                  label="Roblox build"
-                  value={runtime.engine.build?.version ?? 'none'}
-                  hint={runtime.engine.store.root ?? 'no build store found'}
-                  tone={runtime.engine.runnable ? 'ok' : 'warn'}
+                  label="Wine prefix"
+                  value={runtime.studio.prefix.initialized ? 'initialised' : 'not initialised'}
+                  hint={runtime.studio.prefix.path}
+                  tone={runtime.studio.prefix.initialized ? 'ok' : 'warn'}
                 />
                 <KeyValue
                   label="Processes"
-                  value={String(runtime.engine.instances)}
+                  value={String(runtime.studio.instances)}
                   hint="started by Xenity"
                 />
               </div>
               {doctor && (
-                <pre className="engine-doctor">
-                  {doctor.lines.length ? doctor.lines.join('\n') : doctor.reason}
-                </pre>
+                <>
+                  <ul className="dep-list">
+                    {doctor.checks.map((check) => (
+                      <li key={check.id} className="dep">
+                        <span
+                          className={`dep__dot dep__dot--${check.status === 'ok' ? 'ok' : check.status === 'fail' ? 'danger' : 'warn'}`}
+                        />
+                        <span className="dep__binary">{check.label}</span>
+                        <span className="dep__state">{check.detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <pre className="engine-doctor">
+                    {doctor.lines.length ? doctor.lines.join('\n') : doctor.reason}
+                  </pre>
+                </>
               )}
             </>
           )}
@@ -270,7 +284,7 @@ export function DiagnosticsPage() {
 
         <Panel
           title="Installation"
-          subtitle="Directories, engine build and dependencies"
+          subtitle="Directories, Studio build and dependencies"
           actions={
             <Button
               variant="secondary"
@@ -290,9 +304,9 @@ export function DiagnosticsPage() {
                   {installation.dependencies.ok ? 'Dependencies satisfied' : 'Dependencies missing'}
                 </StatusPill>
                 <span className="muted">
-                  {installation.engine.runnable
-                    ? `Roblox ${installation.engine.build?.version ?? 'build'} ready`
-                    : 'no launchable build'}
+                  {installation.studio.present
+                    ? `Roblox Studio ${installation.studio.version ?? ''} ready`.replace('  ', ' ').trim()
+                    : 'Studio not installed'}
                 </span>
               </div>
               <ul className="dep-list">
@@ -316,10 +330,11 @@ export function DiagnosticsPage() {
                   </code>
                 </p>
               )}
-              {installation.engine.present ? null : (
+              {installation.studio.present ? null : (
                 <p className="dep__install-hint">
-                  The engine itself is installed separately: <code>{installation.engine.command ?? 'cordial-shell'}</code>{' '}
-                  was not found. See the Engine panel for the command.
+                  Studio itself is installed separately: no build was found in{' '}
+                  <code>{installation.studio.prefix}</code>. See the Studio panel on the Studio page
+                  to run Roblox’s installer under Wine.
                 </p>
               )}
             </>

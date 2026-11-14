@@ -5,26 +5,27 @@ import { ReleasePanel } from '../components/ReleasePanel';
 
 const IMPLEMENTED = [
   'Main application window shell with persistent navigation',
-  'Home dashboard, Play, Library, Settings, Diagnostics and About screens',
+  'Home dashboard, Studio, Places, Settings, Diagnostics and About screens',
   'Persistent configuration in the Xenity config directory',
   'System information detection (distribution, kernel, CPU, GPU, RAM, session)',
   'Graphics probing for Vulkan and OpenGL availability',
   'Dependency validation with exact Arch package names',
   'Structured logging with rotation and redacted export',
   'Eight-step launch sequence that stops honestly at the first blocker',
-  'Roblox started through Cordial, which runs the official Android build natively',
-  'The Cordial engine installed and updated by Xenity itself, from the official release',
+  'Roblox Studio installed by Roblox’s own Windows installer',
+  'Studio run by Wine inside a prefix Xenity owns, detected by its real build folder',
+  'Place files handed to Studio, plus favorites and launch history',
   'A single-file AppImage built by the release workflow in this repository',
-  'Engine detection for a native package or a Flatpak install, plus its build store',
-  'Cordial doctor checks and its diagnostic report, surfaced in Diagnostics',
+  'Wine/prefix/display/DXVK doctor checks, surfaced in Diagnostics',
   'Storage reporting and Xenity-scoped cache cleanup',
 ];
 
 const PLANNED = [
-  'APK manifest, ABI and signature inspection inside Xenity itself',
-  'Graphics backend, shader cache and frame pacing',
-  'Input translation for keyboard, mouse and controllers',
-  'Deep-link launching through official Roblox mechanisms',
+  'Bundle a curated DXVK build with the launcher',
+  'Per-place Wine prefix overrides and graphics flags',
+  'Automatic Studio updates inside the prefix',
+  'Roblox account sign-in helpers for the Studio client',
+  'Sandboxing the prefix with bubblewrap',
   'Automatic updates with signature verification',
   'Crash management and safe recovery mode',
   'Additional distribution support beyond Arch Linux',
@@ -52,8 +53,8 @@ export function AboutPage() {
             <StatusPill tone="muted">Platform: Arch Linux</StatusPill>
             <StatusPill tone={runtime?.present ? 'ok' : 'warn'}>
               {runtime?.present
-                ? `Engine: ${runtime.backendName} ${runtime.engine.version ?? ''}`.replace('  ', ' ').trim()
-                : 'Engine not installed'}
+                ? `Studio ${runtime.studio.studio.version ?? ''}`.replace('  ', ' ').trim()
+                : 'Studio not installed'}
             </StatusPill>
           </div>
         </div>
@@ -64,20 +65,16 @@ export function AboutPage() {
       <div className="grid grid--main">
         <Panel title="What this build is" subtitle="Milestone one of the launcher">
           <p className="panel__text">
-            Xenity is a Linux Roblox launcher. This build is the launcher shell — window layout,
-            navigation, dashboards, persisted configuration, system detection, logging and the launch
-            pipeline — wired to a real engine backend. Roblox is started through{' '}
-            <a
-              className="text-link"
-              href="https://github.com/luohoa97/cordial"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Cordial
-            </a>
-            , which runs Roblox&rsquo;s official Android build natively on Linux. Xenity owns none of
-            that runtime: it detects it, reads its build store and starts it through the command line
-            Cordial publishes. It never claims a launch it did not perform.
+            Xenity brings Roblox Studio to Linux. Roblox publishes Studio for Windows only, so Xenity
+            runs that official Windows build through{' '}
+            <a className="text-link" href="https://www.winehq.org/" target="_blank" rel="noreferrer">
+              Wine
+            </a>{' '}
+            inside a prefix it owns: Roblox&rsquo;s own installer is downloaded from{' '}
+            <code>setup.rbxcdn.com</code>, run under Wine, and the Studio build it leaves behind is
+            what Xenity launches. Nothing is patched, repackaged or reverse engineered, and Roblox
+            does not support Studio on Linux — Wine is the compatibility layer, and some machines
+            will still hit driver limits.
           </p>
           <p className="panel__text">
             The interface is written in React and TypeScript behind a thin Node service that owns
@@ -89,15 +86,16 @@ export function AboutPage() {
             <KeyValue label="Version" value={`Xenity ${overview?.version.version ?? '0.1.0'}`} hint={`${overview?.version.channel ?? 'stable'} channel`} />
             <KeyValue label="Target" value="Arch Linux" hint={overview?.system.distribution.name ?? ''} />
             <KeyValue
-              label="Engine"
-              value={`${runtime?.backendName ?? 'Cordial'} ${runtime?.engine.version ?? ''}`.trim()}
-              hint={runtime?.engine.kind ? `${runtime.engine.kind} install` : 'not installed'}
+              label="Studio"
+              value={runtime?.present ? runtime.studio.studio.version ?? 'installed' : 'not installed'}
+              hint={runtime?.studio.wine.version ? `Wine ${runtime.studio.wine.version}` : 'Wine not installed'}
               tone={runtime?.present ? 'ok' : 'warn'}
             />
           </div>
           <p className="panel__footnote">
-            Engine backend: Cordial, GPL-3.0-or-later, github.com/luohoa97/cordial. Xenity is
-            distributed under the same licence because it depends on it.
+            Roblox Studio is Roblox Corporation’s proprietary software and is not distributed with
+            Xenity; the installer is fetched from Roblox and run locally under Wine. Xenity is
+            GPL-3.0-or-later.
           </p>
         </Panel>
 

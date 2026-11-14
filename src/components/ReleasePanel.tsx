@@ -36,13 +36,13 @@ export function ReleasePanel() {
     >
       <p className="panel__text">
         Xenity ships as a single executable AppImage. Download it, make it executable and run it —
-        the launcher starts, and the first time you press Play it fetches the Cordial engine into
-        its own data directory.
+        the launcher starts, and the Studio page installs Roblox’s own Studio installer into a Wine
+        prefix under your data directory.
       </p>
 
       <div className="kv-grid">
         <KeyValue label="Format" value="AppImage" hint="x86_64, self-contained" tone="accent" />
-        <KeyValue label="Engine" value="Cordial" hint="downloaded on install, not baked in" />
+        <KeyValue label="Studio" value="via Wine" hint="Roblox’s installer is fetched, not baked in" />
         <KeyValue
           label="Build"
           value={builtHere ? (release?.size ? bytes(release.size) : 'ready') : 'not built here'}

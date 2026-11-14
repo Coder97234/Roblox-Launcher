@@ -40,38 +40,67 @@ export type RuntimeBackend = {
   selectable: boolean;
 };
 
-export type EngineBuild = {
-  version: string;
-  dir: string;
-  root: string;
-  engine: boolean;
-  baseApk: boolean;
-  signer: boolean;
-  launchable: boolean;
+export type StudioStatus = {
+  name: string;
+  installerUrl: string;
+  installHint: string;
+  wine: { present: boolean; binary: string | null; version: string | null; detail: string };
+  prefix: { path: string; initialized: boolean; exists: boolean };
+  studio: {
+    installed: boolean;
+    version: string | null;
+    exe: string | null;
+    dir: string | null;
+    installedAt: string | null;
+    bytes: number;
+    versions: number;
+    reason: string | null;
+  };
+  renderer: string;
+  dxvk: boolean;
+  instances: number;
+  running: {
+    id: string;
+    pid: number | null;
+    place: string | null;
+    startedAt: string;
+    status: string;
+  }[];
+  checkedAt: string;
 };
 
-export type EngineInstance = {
+export type StudioInstallState = {
+  job: {
+    status: 'idle' | 'running' | 'done' | 'failed';
+    phase: string;
+    installer: string | null;
+    received: number;
+    total: number | null;
+    percent: number;
+    error: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+  };
+  wine: StudioStatus['wine'];
+  prefix: StudioStatus['prefix'];
+  studio: StudioStatus['studio'];
+};
+
+export type StudioDoctorCheck = {
   id: string;
-  pid: number | null;
-  kind: string;
-  profile: string | null;
-  placeId: number | null;
-  startedAt: string;
-  status: string;
+  label: string;
+  status: 'ok' | 'warn' | 'fail';
+  detail: string;
 };
 
-export type ManagedEngine = {
-  installed: boolean;
-  binary: string;
-  path: string | null;
-  manifest: Record<string, unknown> | null;
-  runnable: boolean;
-  version?: string | null;
-  tag?: string | null;
-  size?: number | null;
-  installedAt?: string | null;
-  verified?: boolean;
-  reason?: string | null;
+export type StudioDoctorResult = {
+  ran: boolean;
+  blocked: boolean;
+  exitCode: number | null;
+  checks: StudioDoctorCheck[];
+  lines: string[];
+  reason: string | null;
+  install?: string;
 };
 
 export type AppImageRelease = {
@@ -86,78 +115,16 @@ export type AppImageRelease = {
   reason: string | null;
 };
 
-export type EngineRelease = {
-  resolved: boolean;
-  tag: string | null;
-  version: string | null;
-  asset: string | null;
-  url: string | null;
-  size: number | null;
-  arch: string;
-  page: string;
-  reason: string | null;
-  checkedAt: string;
-};
-
-export type EngineInstallState = {
-  job: {
-    status: 'idle' | 'running' | 'done' | 'failed';
-    phase: string;
-    release: EngineRelease | null;
-    received: number;
-    total: number | null;
-    percent: number;
-    error: string | null;
-    startedAt: string | null;
-    finishedAt: string | null;
-  };
-  engine: ManagedEngine;
-};
-
-export type EngineStatus = {
-  engine: string;
-  project: string;
-  licence: string;
-  install: string;
-  present: boolean;
-  kind: string | null;
-  command: string | null;
-  source: string | null;
-  managed: ManagedEngine;
-  version: string | null;
-  store: {
-    roots: { path: string; exists: boolean; builds: number }[];
-    root: string | null;
-    builds: EngineBuild[];
-    newest: EngineBuild | null;
-    runnableBuild: EngineBuild | null;
-  };
-  build: EngineBuild | null;
-  runnable: boolean;
-  instances: number;
-  running: EngineInstance[];
-  checkedAt: string;
-};
-
-export type EngineDoctorResult = {
-  ran: boolean;
-  blocked: boolean;
-  exitCode: number | null;
-  command?: string;
-  lines: string[];
-  reason: string | null;
-  install?: string;
-};
-
 export type RuntimeStatus = {
   implemented: boolean;
   available: boolean;
   present: boolean;
+  winePresent: boolean;
   state: string;
   backend: string;
   backendName: string;
   backends: RuntimeBackend[];
-  engine: EngineStatus;
+  studio: StudioStatus;
   reason: string;
   next: string;
   graphics: string;
@@ -182,29 +149,22 @@ export type InstallationState = {
   directories: DirectoryStatus[];
   configFile: string;
   directoriesOk: boolean;
-  applications: {
-    directory: string;
-    baseApk: string | null;
-    splits: string[];
-    files: string[];
-    present: boolean;
-    note: string;
-  };
+  places: { directory: string; files: string[]; count: number; note: string };
   dependencies: {
     checks: DependencyCheck[];
     missingRequired: DependencyCheck[];
     ok: boolean;
     checkedAt: string;
   };
-  engine: {
+  studio: {
     name: string;
     present: boolean;
     version: string | null;
-    command: string | null;
-    kind: string | null;
-    runnable: boolean;
-    store: string | null;
-    build: { version: string; path: string } | null;
+    exe: string | null;
+    prefix: string;
+    prefixReady: boolean;
+    wine: string | null;
+    running: number;
   };
   verified: boolean;
   status: string;
@@ -221,7 +181,7 @@ export type Settings = {
     notifications: boolean;
   };
   graphics: { backend: string; vsync: boolean; resolution: string; fpsCap: string };
-  runtime: { profile: string; autoValidate: boolean; restartPolicy: string };
+  studio: { prefixPath: string; renderer: string; dxvk: boolean; autoValidate: boolean };
   storage: { installationDirectory: string; cacheDirectory: string };
   updates: { channel: string; checkOnStartup: boolean };
 };
@@ -236,33 +196,33 @@ export type LaunchResult = {
   error: { what: string; why: string; next: string; code: string; step: string } | null;
   runtime: { available: boolean; backendName: string };
   instance: { id: string; pid: number | null; status: string } | null;
-  experience: { id: string | null; name: string | null; placeId: number | null };
+  place: { id: string | null; name: string | null; file: string | null };
   note: string;
 };
 
-export type LaunchHistoryEntry = {
+export type OpenHistoryEntry = {
   id: string;
   at: string;
-  experienceId: string | null;
-  experienceName: string | null;
+  placeId: string | null;
+  placeName: string | null;
   outcome: 'failed' | 'succeeded';
   message: string;
 };
 
-export type Experience = {
+export type Place = {
   id: string;
   name: string;
-  url: string | null;
+  file: string | null;
   favorite: boolean;
   addedAt: string;
-  lastLaunchedAt: string | null;
+  lastOpenedAt: string | null;
 };
 
-export type LibraryData = {
-  experiences: Experience[];
-  favorites: Experience[];
-  recent: LaunchHistoryEntry[];
-  history: LaunchHistoryEntry[];
+export type PlacesData = {
+  places: Place[];
+  favorites: Place[];
+  recent: OpenHistoryEntry[];
+  history: OpenHistoryEntry[];
   favoriteCount: number;
   empty: boolean;
 };
@@ -272,7 +232,7 @@ export type Overview = {
   runtime: RuntimeStatus;
   installation: InstallationState;
   version: { version: string; channel: string };
-  lastLaunch: LaunchHistoryEntry | null;
+  lastLaunch: OpenHistoryEntry | null;
 };
 
 export type StorageReport = {

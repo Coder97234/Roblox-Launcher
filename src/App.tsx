@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Sidebar, TopBar, useSidebarState } from './components/Shell';
 import { HomePage } from './pages/HomePage';
 import { PlayPage } from './pages/PlayPage';
-import { LibraryPage } from './pages/LibraryPage';
+import { PlacesPage } from './pages/PlacesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DiagnosticsPage } from './pages/DiagnosticsPage';
 import { AboutPage } from './pages/AboutPage';
@@ -40,7 +40,7 @@ function Workspace() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/play" element={<PlayPage />} />
-              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/library" element={<PlacesPage />} />
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />

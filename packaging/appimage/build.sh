@@ -6,9 +6,10 @@
 # The build happens in a scratch copy (.appimage/), so the working checkout and
 # its node_modules are never touched. Electron supplies the window and its own
 # Node runtime, so the finished AppImage needs nothing installed on the machine
-# beyond what a desktop already has. The Cordial engine is not baked in: the
-# launcher downloads it on demand into its own data directory (see
-# server/modules/engine_manager.js).
+# beyond what a desktop already has. Roblox Studio is a Windows application and
+# is not redistributed here: the launcher installs Roblox's own installer into a
+# Wine prefix under the user's data directory (see server/modules/studio.js), so
+# Wine itself stays a system package (sudo pacman -S wine winetricks).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -103,5 +104,6 @@ chmod +x "$TARGET"
 echo
 echo "Built  $TARGET"
 echo "Shell  Electron $ELECTRON_VERSION"
-echo "Engine Cordial is downloaded on first install, not baked in."
+echo "Studio Roblox's Studio installer runs under Wine on first install, not baked in."
+echo "Wine   required on the target machine: sudo pacman -S wine winetricks"
 echo "Run    chmod +x '$TARGET' && '$TARGET'"

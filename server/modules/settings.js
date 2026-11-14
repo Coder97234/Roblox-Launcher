@@ -5,6 +5,7 @@ import { info, warn } from './logging.js';
 const THEMES = ['xenity-dark', 'charcoal', 'midnight'];
 const LANGUAGES = ['en', 'de', 'fr', 'es', 'pt-BR'];
 const BACKENDS = ['auto', 'vulkan', 'opengl'];
+const RENDERERS = ['auto', 'vulkan', 'opengl'];
 const CHANNELS = ['stable', 'beta', 'nightly'];
 const RESOLUTIONS = ['auto', 'native', '1600x900', '1920x1080', '2560x1440'];
 const FPS_CAPS = ['auto', '30', '60', '120', '144', 'unlimited'];
@@ -23,12 +24,12 @@ export const DEFAULT_SETTINGS = {
     resolution: 'auto',
     fpsCap: 'auto',
   },
-  runtime: {
-    // The Cordial profile Xenity starts games on. Keeping Xenity on its own
-    // profile leaves a launcher the user already has open untouched.
-    profile: 'xenity',
+  studio: {
+    // Blank means Xenity's own prefix: <Xenity data>/runtime/wineprefix.
+    prefixPath: '',
+    renderer: 'auto',
+    dxvk: true,
     autoValidate: true,
-    restartPolicy: 'ask',
   },
   storage: {
     installationDirectory: '/data/applications',
@@ -71,18 +72,17 @@ function sanitize(patch, base) {
     if (typeof g.fpsCap === 'string')
       next.graphics.fpsCap = clampChoice(g.fpsCap, FPS_CAPS, next.graphics.fpsCap);
   }
-  if (patch.runtime) {
-    const r = patch.runtime;
-    // Cordial's own rule for a profile name: letters, digits, - and _.
-    if (typeof r.profile === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(r.profile))
-      next.runtime.profile = r.profile;
-    if (typeof r.autoValidate === 'boolean') next.runtime.autoValidate = r.autoValidate;
-    if (typeof r.restartPolicy === 'string')
-      next.runtime.restartPolicy = clampChoice(
-        r.restartPolicy,
-        ['ask', 'always', 'never'],
-        next.runtime.restartPolicy,
-      );
+  if (patch.studio) {
+    const s = patch.studio;
+    if (typeof s.prefixPath === 'string') {
+      const value = s.prefixPath.trim().slice(0, 200);
+      // Empty means the Xenity-owned prefix; anything else must be absolute.
+      if (!value || value.startsWith('/')) next.studio.prefixPath = value;
+    }
+    if (typeof s.renderer === 'string')
+      next.studio.renderer = clampChoice(s.renderer, RENDERERS, next.studio.renderer);
+    if (typeof s.dxvk === 'boolean') next.studio.dxvk = s.dxvk;
+    if (typeof s.autoValidate === 'boolean') next.studio.autoValidate = s.autoValidate;
   }
   if (patch.storage) {
     const s = patch.storage;

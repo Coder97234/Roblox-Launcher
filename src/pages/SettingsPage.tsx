@@ -10,7 +10,7 @@ import { Button, KeyValue, Panel, Select, Spinner, TextField, Toggle } from '../
 const SECTIONS = [
   { id: 'general', label: 'General' },
   { id: 'graphics', label: 'Graphics' },
-  { id: 'runtime', label: 'Runtime' },
+  { id: 'studio', label: 'Studio' },
   { id: 'storage', label: 'Storage' },
   { id: 'updates', label: 'Updates' },
 ] as const;
@@ -260,55 +260,62 @@ export function SettingsPage() {
           </Panel>
         )}
 
-        {section === 'runtime' && (
-          <Panel title="Runtime" subtitle="Cordial engine and the profile Xenity runs on">
+        {section === 'studio' && (
+          <Panel title="Studio" subtitle="Wine prefix and the build Xenity launches">
             <div className="kv-grid kv-grid--wide">
               <KeyValue
-                label="Engine"
-                value={`${runtime?.backendName ?? 'Cordial'} ${runtime?.engine.version ?? ''}`.trim()}
-                hint={runtime?.engine.command ?? 'not installed'}
+                label="Wine"
+                value={runtime?.studio.wine.present ? runtime.studio.wine.version ?? 'present' : 'not installed'}
+                hint={runtime?.studio.wine.binary ?? runtime?.studio.installHint ?? ''}
+                tone={runtime?.studio.wine.present ? 'ok' : 'warn'}
+              />
+              <KeyValue
+                label="Studio build"
+                value={runtime?.present ? runtime.studio.studio.version ?? 'installed' : 'not installed'}
+                hint={runtime?.studio.studio.exe ?? 'run Roblox’s installer from the Studio page'}
                 tone={runtime?.present ? 'ok' : 'warn'}
               />
               <KeyValue
-                label="Install"
-                value={runtime?.engine.kind ?? 'not installed'}
-                hint={runtime?.engine.source ?? ''}
-              />
-              <KeyValue
-                label="Roblox build"
-                value={runtime?.engine.build?.version ?? 'none'}
-                hint={runtime?.engine.store.root ?? 'no build store found'}
-                tone={runtime?.engine.runnable ? 'ok' : 'warn'}
+                label="Prefix"
+                value={runtime?.studio.prefix.initialized ? 'initialised' : 'not initialised'}
+                hint={runtime?.studio.prefix.path ?? ''}
+                tone={runtime?.studio.prefix.initialized ? 'ok' : 'warn'}
               />
               <KeyValue
                 label="Status"
-                value={runtime?.available ? 'launch ready' : runtime?.state ?? 'unknown'}
+                value={runtime?.available ? 'studio ready' : runtime?.state ?? 'unknown'}
                 hint={runtime?.checkedAt ? relativeTime(runtime.checkedAt) : ''}
               />
             </div>
             <div className="field-stack">
               <TextField
-                label="Cordial profile"
-                description="The profile Xenity starts games on. A profile of its own leaves any Cordial launcher you already have open untouched."
-                value={draft.runtime.profile}
-                onChange={(value) => patch('runtime', { profile: value })}
+                label="Wine prefix"
+                description="Leave blank to use Xenity’s own prefix under its data directory. An absolute path uses an existing prefix instead."
+                value={draft.studio.prefixPath}
+                onChange={(value) => patch('studio', { prefixPath: value })}
+              />
+              <Select
+                label="Direct3D backend"
+                description="DXVK translates Direct3D to Vulkan and is what Studio’s viewport expects."
+                value={draft.studio.renderer}
+                onChange={(value) => patch('studio', { renderer: value })}
+                options={[
+                  { value: 'auto', label: 'Automatic (DXVK when present)' },
+                  { value: 'vulkan', label: 'Vulkan (DXVK)' },
+                  { value: 'opengl', label: 'OpenGL (Wine’s built-in Direct3D)' },
+                ]}
+              />
+              <Toggle
+                label="Use DXVK"
+                description="Run Studio’s Direct3D 11 through DXVK inside the prefix."
+                checked={draft.studio.dxvk}
+                onChange={(value) => patch('studio', { dxvk: value })}
               />
               <Toggle
                 label="Validate on start"
-                description="Re-check the engine and its build store before every launch."
-                checked={draft.runtime.autoValidate}
-                onChange={(value) => patch('runtime', { autoValidate: value })}
-              />
-              <Select
-                label="On unexpected exit"
-                description="What Xenity should do when the engine stops."
-                value={draft.runtime.restartPolicy}
-                onChange={(value) => patch('runtime', { restartPolicy: value })}
-                options={[
-                  { value: 'ask', label: 'Ask me' },
-                  { value: 'always', label: 'Restart automatically' },
-                  { value: 'never', label: 'Do not restart' },
-                ]}
+                description="Re-check Wine, the prefix and the Studio build before every launch."
+                checked={draft.studio.autoValidate}
+                onChange={(value) => patch('studio', { autoValidate: value })}
               />
             </div>
             <div className="inline-actions">
@@ -321,14 +328,14 @@ export function SettingsPage() {
                 icon={<WrenchIcon size={14} />}
                 onClick={() =>
                   notify({
-                    title: runtime?.engine.instances
-                      ? `${runtime.engine.instances} Cordial process${runtime.engine.instances === 1 ? '' : 'es'} running`
-                      : 'No engine process running',
+                    title: runtime?.studio.instances
+                      ? `${runtime.studio.instances} Studio process${runtime.studio.instances === 1 ? '' : 'es'} running`
+                      : 'No Studio process running',
                     description:
-                      runtime?.engine.instances
-                        ? 'Started by Xenity in this session; its output is in the Xenity log.'
-                        : runtime?.reason ?? 'Xenity has not started Cordial in this session.',
-                    tone: runtime?.engine.instances ? 'info' : 'warn',
+                      runtime?.studio.instances
+                        ? 'Started by Xenity in this session; Wine’s output is in the Xenity log.'
+                        : runtime?.reason ?? 'Xenity has not started Studio in this session.',
+                    tone: runtime?.studio.instances ? 'info' : 'warn',
                   })
                 }
               >

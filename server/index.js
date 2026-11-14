@@ -8,25 +8,14 @@ import {
 } from './modules/installation.js';
 import { getSettings, resetSettings, updateSettings, settingsFilePath } from './modules/settings.js';
 import {
-  addExperience,
-  getLibrary,
+  addPlace,
+  getPlaces,
   lastLaunch,
-  removeExperience,
+  removePlace,
   toggleFavorite,
-} from './modules/library.js';
+} from './modules/places.js';
 import { runLaunch } from './modules/launch.js';
-import {
-  getEngineStatus,
-  openEngine,
-  readEngineReport,
-  runDoctor,
-} from './modules/cordial.js';
-import {
-  engineInstallStatus,
-  resolveLatestRelease,
-  startEngineInstall,
-  uninstallEngine,
-} from './modules/engine_manager.js';
+import { getStudioStatus, installStatus, openStudio, runDoctor, startStudioInstall } from './modules/studio.js';
 import { buildDiagnostics, buildReportText, logsForExport } from './modules/diagnostics.js';
 import { clearCache, storageReport } from './modules/storage.js';
 import { checkForUpdates, versionInfo } from './modules/updater.js';
@@ -68,14 +57,18 @@ app.get(
 
 app.get('/api/system', wrap(() => detectSystem()));
 app.get('/api/runtime', wrap(() => getRuntimeStatus()));
-app.get('/api/engine', wrap(() => getEngineStatus()));
-app.get('/api/engine/report', wrap(() => readEngineReport()));
-app.post('/api/engine/doctor', wrap(() => runDoctor()));
-app.post('/api/engine/open', wrap(() => openEngine()));
-app.get('/api/engine/release', wrap(() => resolveLatestRelease()));
-app.get('/api/engine/install', wrap(() => engineInstallStatus()));
-app.post('/api/engine/install', wrap((req) => startEngineInstall({ force: Boolean(req.body?.force) })));
-app.delete('/api/engine', wrap(() => uninstallEngine()));
+app.get('/api/studio', wrap(() => getStudioStatus()));
+app.post('/api/studio/doctor', wrap(() => runDoctor()));
+app.post('/api/studio/open', wrap(() => openStudio()));
+app.get('/api/studio/install', wrap(() => installStatus()));
+app.post(
+  '/api/studio/install',
+  wrap((req) =>
+    startStudioInstall({
+      installerPath: typeof req.body?.installerPath === 'string' ? req.body.installerPath : null,
+    }),
+  ),
+);
 app.get('/api/dependencies', wrap(() => checkDependencies()));
 app.get('/api/installation', wrap(() => installationState()));
 app.post('/api/installation/repair', wrap(() => repairInstallation()));
@@ -90,23 +83,14 @@ app.post('/api/settings/reset', wrap(() => ({ settings: resetSettings() })));
 app.get('/api/storage', wrap(() => storageReport()));
 app.post('/api/storage/clear-cache', wrap(() => clearCache()));
 
-app.get('/api/library', wrap(() => getLibrary()));
-app.post(
-  '/api/library',
-  wrap((req) => ({ experience: addExperience(req.body ?? {}) })),
-);
-app.post(
-  '/api/library/:id/favorite',
-  wrap((req) => ({ experience: toggleFavorite(req.params.id) })),
-);
-app.delete(
-  '/api/library/:id',
-  wrap((req) => removeExperience(req.params.id)),
-);
+app.get('/api/places', wrap(() => getPlaces()));
+app.post('/api/places', wrap((req) => ({ place: addPlace(req.body ?? {}) })));
+app.post('/api/places/:id/favorite', wrap((req) => ({ place: toggleFavorite(req.params.id) })));
+app.delete('/api/places/:id', wrap((req) => removePlace(req.params.id)));
 
 app.post(
   '/api/launch',
-  wrap((req) => runLaunch({ experienceId: req.body?.experienceId ?? null })),
+  wrap((req) => runLaunch({ placeId: req.body?.placeId ?? null })),
 );
 
 app.get('/api/diagnostics', wrap(() => buildDiagnostics()));

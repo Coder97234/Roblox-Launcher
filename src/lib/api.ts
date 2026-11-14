@@ -1,17 +1,16 @@
 import type {
   AppImageRelease,
   Diagnostics,
-  EngineDoctorResult,
-  EngineInstallState,
-  EngineRelease,
-  EngineStatus,
   InstallationState,
   LaunchResult,
-  LibraryData,
   LogEntry,
   Overview,
+  PlacesData,
   Settings,
   StorageReport,
+  StudioDoctorResult,
+  StudioInstallState,
+  StudioStatus,
   SystemInfo,
   UpdateCheck,
   RuntimeStatus,
@@ -88,21 +87,18 @@ export const api = {
   overview: () => request<Overview>('/api/overview'),
   system: () => request<SystemInfo>('/api/system'),
   runtime: () => request<RuntimeStatus>('/api/runtime'),
-  engine: () => request<EngineStatus>('/api/engine'),
-  engineDoctor: () => request<EngineDoctorResult>('/api/engine/doctor', { method: 'POST' }),
-  engineOpen: () =>
-    request<{ started: boolean; instance: { pid: number | null } | null }>('/api/engine/open', {
+  studio: () => request<StudioStatus>('/api/studio'),
+  studioDoctor: () => request<StudioDoctorResult>('/api/studio/doctor', { method: 'POST' }),
+  studioOpen: () =>
+    request<{ started: boolean; instance: { pid: number | null } | null }>('/api/studio/open', {
       method: 'POST',
     }),
-  engineRelease: () => request<EngineRelease>('/api/engine/release'),
-  engineInstall: () => request<EngineInstallState>('/api/engine/install'),
-  startEngineInstall: (force = false) =>
-    request<EngineInstallState>('/api/engine/install', {
+  studioInstall: () => request<StudioInstallState>('/api/studio/install'),
+  startStudioInstall: (installerPath: string | null = null) =>
+    request<StudioInstallState>('/api/studio/install', {
       method: 'POST',
-      body: JSON.stringify({ force }),
+      body: JSON.stringify({ installerPath }),
     }),
-  removeEngine: () =>
-    request<{ removed: boolean; directory: string }>('/api/engine', { method: 'DELETE' }),
   installation: () => request<InstallationState>('/api/installation'),
   repair: () => request<{ created: string[]; message: string }>('/api/installation/repair', { method: 'POST' }),
   settings: () => request<{ settings: Settings; path: string }>('/api/settings'),
@@ -117,22 +113,21 @@ export const api = {
     request<{ removed: number; directory: string; message: string }>('/api/storage/clear-cache', {
       method: 'POST',
     }),
-  library: () => request<LibraryData>('/api/library'),
-  addExperience: (name: string, url: string) =>
-    request<{ experience: { id: string } }>('/api/library', {
+  places: () => request<PlacesData>('/api/places'),
+  addPlace: (name: string, file: string) =>
+    request<{ place: { id: string } }>('/api/places', {
       method: 'POST',
-      body: JSON.stringify({ name, url }),
+      body: JSON.stringify({ name, file }),
     }),
-  favorite: (id: string) =>
-    request<{ experience: { id: string; favorite: boolean } }>(`/api/library/${id}/favorite`, {
+  favoritePlace: (id: string) =>
+    request<{ place: { id: string; favorite: boolean } }>(`/api/places/${id}/favorite`, {
       method: 'POST',
     }),
-  removeExperience: (id: string) =>
-    request<{ removed: boolean }>(`/api/library/${id}`, { method: 'DELETE' }),
-  launch: (experienceId: string | null = null) =>
+  removePlace: (id: string) => request<{ removed: boolean }>(`/api/places/${id}`, { method: 'DELETE' }),
+  launch: (placeId: string | null = null) =>
     request<LaunchResult>('/api/launch', {
       method: 'POST',
-      body: JSON.stringify({ experienceId }),
+      body: JSON.stringify({ placeId }),
     }),
   diagnostics: () => request<Diagnostics>('/api/diagnostics'),
   diagnosticsReport: () => requestText('/api/diagnostics/report'),

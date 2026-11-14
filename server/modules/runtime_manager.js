@@ -1,95 +1,78 @@
 import { detectSystem } from './system_detection.js';
-import { ENGINE_NAME, getEngineStatus, INSTALL_HINT } from './cordial.js';
-
+import { STUDIO_NAME, WINE_INSTALL_HINT, getStudioStatus } from './studio.js';
 
 /**
  * Runtime manager.
  *
- * There is exactly one backend in this build: Cordial, which runs Roblox's
- * official Android build natively on Linux. Xenity drives it through the
- * interfaces it publishes (`--profile … --play`, `--doctor`, `--diagnostics`)
- * and reads its build store. Nothing here patches Roblox or claims a launch
- * that did not happen.
+ * There is one runtime in this build: the real Roblox Studio for Windows,
+ * running inside a Wine prefix Xenity owns. Xenity installs it, detects the
+ * Studio build the installer left behind and launches that executable.
  *
  * The state names say what is actually missing:
- *   engine-missing    Cordial is not installed on this machine.
- *   build-missing     Cordial is installed and its store holds no Roblox build.
- *   build-unverified  It holds builds, none of which Cordial would launch.
- *   ready             A verified build is in the store and a launch will run.
+ *   wine-missing      Wine itself is not installed on this machine.
+ *   studio-missing    Wine is there, but no Roblox Studio build in the prefix.
+ *   ready             A Studio build exists and will start.
  */
 
-function stateOf(engine) {
-  if (!engine.present) return 'engine-missing';
-  if (engine.runnable) return 'ready';
-  return engine.store.builds.length ? 'build-unverified' : 'build-missing';
+function stateOf(studio) {
+  if (!studio.wine.present) return 'wine-missing';
+  if (!studio.studio.installed) return 'studio-missing';
+  return 'ready';
 }
 
-function explain(engine, state) {
-  const version = engine.version ? `${ENGINE_NAME} ${engine.version}` : ENGINE_NAME;
-  if (state === 'engine-missing') {
+function explain(studio, state) {
+  if (state === 'wine-missing') {
     return {
-      reason: `${ENGINE_NAME} is the engine backend Xenity drives, and it is not installed on this machine.`,
-      next: `Press Install on this page: Xenity downloads the official Cordial release into its own data directory. An existing install is used too (${INSTALL_HINT}).`,
+      reason: 'Wine is the compatibility layer that runs the Windows Roblox Studio build, and it is not installed.',
+      next: `Install it on Arch with: ${WINE_INSTALL_HINT} — then recheck this page.`,
     };
   }
-  if (state === 'build-missing') {
+  if (state === 'studio-missing') {
     return {
-      reason: `${version} is installed, but its build store holds no Roblox build yet.`,
-      next: 'Open Cordial once and press its Download Roblox button. Xenity then launches through the build Cordial keeps — it never downloads or repackages Roblox itself.',
-    };
-  }
-  if (state === 'build-unverified') {
-    const count = engine.store.builds.length;
-    return {
-      reason: `${version} holds ${count} build${count === 1 ? '' : 's'} in ${engine.store.root}, but none is verified as launchable.`,
-      next: 'A build must hold its own base.apk and a recorded signer before Cordial will run it. Open Cordial and let it finish or re-download the build.',
+      reason: `Wine is ready (${studio.wine.version ?? 'version unknown'}), but no Roblox Studio build exists in ${studio.prefix.path} yet.`,
+      next: 'Press Install Studio. Xenity downloads Roblox’s own Studio installer and runs it under Wine; the installer window is Roblox’s.',
     };
   }
   return {
-    reason: `${version} will run Roblox ${engine.build?.version ?? 'from its store'} from ${engine.store.root}.`,
-    next: 'Press Play. Xenity starts Cordial with its own profile so a launcher you already have open is left alone.',
+    reason: `Roblox Studio ${studio.studio.version} is installed in ${studio.prefix.path}.`,
+    next: 'Press Open Studio. Xenity starts the Studio executable inside the prefix, and the window is Studio’s own.',
   };
 }
 
-function backendDetail(engine, state) {
-  if (!engine.present) return `${ENGINE_NAME} was not found in PATH, as an XENITY_CORDIAL_BIN override, or as a Flatpak.`;
-  const where = engine.command ?? ENGINE_NAME;
-  if (state === 'ready') {
-    return `${where} · Roblox ${engine.build?.version ?? 'unknown'} · ${engine.store.root}`;
-  }
-  if (state === 'build-unverified') {
-    return `${where} · ${engine.store.builds.length} unverified build(s) in ${engine.store.root}`;
-  }
-  return `${where} · no Roblox build in its store`;
+function backendDetail(studio, state) {
+  if (state === 'wine-missing') return studio.wine.detail;
+  if (state === 'studio-missing') return `${studio.wine.detail} · no Studio build in the prefix`;
+  return `${studio.studio.exe} · ${studio.wine.version ?? 'Wine'}`;
 }
 
 export function getRuntimeStatus() {
-  const engine = getEngineStatus();
+  const studio = getStudioStatus();
   const system = detectSystem();
-  const state = stateOf(engine);
+  const state = stateOf(studio);
   const available = state === 'ready';
-  const { reason, next } = explain(engine, state);
+  const { reason, next } = explain(studio, state);
 
   return {
     implemented: true,
     available,
-    present: engine.present,
+    present: studio.studio.installed,
+    winePresent: studio.wine.present,
     state,
-    backend: 'cordial',
-    backendName: ENGINE_NAME,
+    backend: 'wine',
+    backendName: STUDIO_NAME,
     backends: [
       {
-        id: 'cordial',
-        name: ENGINE_NAME,
+        id: 'wine',
+        name: STUDIO_NAME,
         description:
-          "Loads Roblox's official Android build in process through a ported bionic linker. Xenity drives it and reads its build store; it never patches the engine.",
-        present: engine.present,
-        running: engine.instances > 0,
-        detail: backendDetail(engine, state),
+          'Roblox’s official Windows Studio build, run by Wine inside a prefix Xenity owns. No patching, no repackaging.',
+        present: studio.wine.present,
+        running: studio.instances > 0,
+        detail: backendDetail(studio, state),
         selectable: available,
       },
     ],
-    engine,
+    studio,
     reason,
     next,
     graphics: system.graphics.backend,

@@ -7,7 +7,7 @@ import { useNotifications } from '../state/notifications';
 import { useSystem } from '../state/system';
 import { CheckIcon, CloseIcon, MinusIcon, PlayIcon, RefreshIcon, TerminalIcon } from '../components/Icons';
 import { Button, EmptyState, ErrorNotice, Panel, Spinner, StatusPill } from '../components/ui';
-import { EnginePanel } from '../components/EnginePanel';
+import { StudioPanel } from '../components/StudioPanel';
 
 function StepIcon({ status }: { status: 'ok' | 'fail' | 'skipped' | 'pending' | 'active' }) {
   if (status === 'ok')
@@ -39,11 +39,11 @@ function StepIcon({ status }: { status: 'ok' | 'fail' | 'skipped' | 'pending' | 
 
 const PIPELINE = [
   'Verify Xenity installation',
-  'Detect the Cordial engine',
+  'Detect Wine',
   'Validate required dependencies',
-  'Find a launchable Roblox build',
-  'Ask Cordial what it will run',
-  'Start Roblox through Cordial',
+  'Find the Roblox Studio build',
+  'Check the Wine prefix',
+  'Start Roblox Studio',
   'Track the launched process',
   'Report result',
 ];
@@ -74,7 +74,7 @@ export function PlayPage() {
     if (result) void loadLogs();
   }, [result]);
 
-  const launch = async () => {
+  const open = async () => {
     await run(null);
     await refresh();
   };
@@ -94,20 +94,20 @@ export function PlayPage() {
         <Panel className="play-panel" glow>
           <div className="play-panel__head">
             <div>
-              <h2 className="panel__title">Launch Roblox</h2>
+              <h2 className="panel__title">Open Roblox Studio</h2>
               <p className="panel__subtitle">
-                Xenity verifies every prerequisite before it starts anything.
+                Xenity checks Wine, the prefix and the Studio build before it starts anything.
               </p>
             </div>
             <StatusPill tone={result?.outcome === 'succeeded' ? 'ok' : result ? 'danger' : 'muted'}>
-              {running ? 'Launching' : result ? `Last run: ${result.outcome}` : 'Idle'}
+              {running ? 'Starting' : result ? `Last run: ${result.outcome}` : 'Idle'}
             </StatusPill>
           </div>
 
-          <button className="play-button play-button--large" onClick={() => void launch()} disabled={running}>
+          <button className="play-button play-button--large" onClick={() => void open()} disabled={running}>
             <span className="play-button__ring" aria-hidden="true" />
             {running ? <Spinner size={28} /> : <PlayIcon size={34} />}
-            <span className="play-button__label">{running ? 'Working…' : 'Play'}</span>
+            <span className="play-button__label">{running ? 'Working…' : 'Open Studio'}</span>
           </button>
 
           <div className="play-panel__status">
@@ -116,17 +116,15 @@ export function PlayPage() {
               <span className="micro-value">{installation?.summary ?? 'Checking…'}</span>
             </div>
             <div>
-              <span className="micro-label">Engine</span>
+              <span className="micro-label">Wine</span>
               <span className="micro-value">
-                {runtime?.present
-                  ? `${runtime.backendName} ${runtime.engine.version ?? ''}`.trim()
-                  : 'Not installed'}
+                {runtime?.studio.wine.present ? runtime.studio.wine.version ?? 'present' : 'Not installed'}
               </span>
             </div>
             <div>
-              <span className="micro-label">Last attempt</span>
+              <span className="micro-label">Studio</span>
               <span className="micro-value">
-                {result ? relativeTime(result.startedAt) : 'This session: none'}
+                {runtime?.present ? runtime.studio.studio.version ?? 'installed' : 'Not installed'}
               </span>
             </div>
           </div>
@@ -162,7 +160,7 @@ export function PlayPage() {
                 <CheckIcon size={18} />
               </span>
               <div className="notice__body">
-                <p className="notice__what">Launch completed.</p>
+                <p className="notice__what">Studio started.</p>
                 <p className="notice__text">{result.note}</p>
               </div>
             </div>
@@ -182,6 +180,9 @@ export function PlayPage() {
                 Clear result
               </Button>
             )}
+            <span className="panel__footnote">
+              Last attempt: {result ? relativeTime(result.startedAt) : 'none this session'}
+            </span>
           </div>
         </Panel>
 
@@ -206,7 +207,7 @@ export function PlayPage() {
         </Panel>
       </div>
 
-      <EnginePanel />
+      <StudioPanel />
 
       <Panel
         title="Launch logs"

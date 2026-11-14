@@ -2,30 +2,37 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { exists, xenityPaths } from './store.js';
 import { which } from './system_detection.js';
-import { getEngineStatus, INSTALL_HINT } from './cordial.js';
+import { getStudioStatus, WINE_INSTALL_HINT } from './studio.js';
 
 /**
  * Dependency validation for Arch Linux. Every entry maps a binary Xenity wants
  * to the official Arch package that provides it, so a missing dependency can be
  * explained with the exact command the user needs instead of a bare code.
  *
- * The engine itself (Cordial) is not a plain binary dependency: it is a native
- * package or a Flatpak, so its presence is decided by cordial.js and reported
- * separately as `installation.engine`.
+ * Wine is the one required entry: without it the Windows Studio build has
+ * nothing to run on. The rest refine the picture (DXVK helper, Vulkan tools,
+ * GPU queries) and are reported as optional.
  */
 const DEPENDENCIES = [
   {
-    binary: 'cordial-shell',
-    package: 'cordial-bin',
-    purpose: 'Engine backend: runs the Roblox Android build natively (a Flatpak install counts too).',
-    required: false,
-    repo: 'aur',
-    installCommand: INSTALL_HINT,
+    binary: 'wine',
+    package: 'wine',
+    purpose: 'Compatibility layer that runs Roblox’s Windows Studio build.',
+    required: true,
+    repo: 'multilib',
+    installCommand: WINE_INSTALL_HINT,
   },
   {
-    binary: 'flatpak',
-    package: 'flatpak',
-    purpose: 'The usual way Cordial is installed, and where its build store lives when it is.',
+    binary: 'winetricks',
+    package: 'winetricks',
+    purpose: 'Installs DXVK into the prefix, which Studio’s 3D viewport needs on Vulkan.',
+    required: false,
+    repo: 'multilib',
+  },
+  {
+    binary: 'cabextract',
+    package: 'cabextract',
+    purpose: 'Some winetricks verbs unpack Windows cabinets with it.',
     required: false,
     repo: 'extra',
   },
@@ -39,14 +46,7 @@ const DEPENDENCIES = [
   {
     binary: 'glxinfo',
     package: 'mesa-utils',
-    purpose: 'Report OpenGL renderer details when Vulkan is unavailable.',
-    required: false,
-    repo: 'extra',
-  },
-  {
-    binary: 'adb',
-    package: 'android-tools',
-    purpose: 'Only needed for Cordial’s Quest import path, not for an ordinary launch.',
+    purpose: 'Report the OpenGL renderer Wine falls back to.',
     required: false,
     repo: 'extra',
   },
@@ -59,9 +59,14 @@ const DEPENDENCIES = [
   },
 ];
 
+const PLACE_EXTENSION = /\.(rbxl|rbxlx)$/i;
+
 export function checkDependencies() {
+  // Wine usually lands as /usr/bin/wine, but a wine64-only package is found too.
   const checks = DEPENDENCIES.map((dependency) => {
-    const found = which(dependency.binary);
+    const found =
+      which(dependency.binary) ||
+      (dependency.binary === 'wine' ? which('wine64') : null);
     return {
       ...dependency,
       present: Boolean(found),
@@ -78,76 +83,78 @@ export function checkDependencies() {
   };
 }
 
-/** Files in the Xenity-owned application directory, classified by APK split name. */
-export function listApplicationFiles() {
+/** Place files Xenity has been pointed at, read from its own directory. */
+export function listPlaceFiles() {
   const dir = xenityPaths().applications;
   let names = [];
   try {
-    names = fs.readdirSync(dir).filter((name) => name.toLowerCase().endsWith('.apk'));
+    names = fs.readdirSync(dir).filter((name) => PLACE_EXTENSION.test(name));
   } catch {
     names = [];
   }
-  const base = names.find((name) => /^base(-\d+)?\.apk$/i.test(name)) || null;
-  const splits = names.filter((name) => name !== base);
   return {
     directory: dir,
-    baseApk: base,
-    splits,
     files: names,
-    present: Boolean(base),
-    note: 'Split names are reported as packaged. Xenity does not yet validate manifests or signatures in this build.',
+    count: names.length,
+    note: 'Xenity lists place files in its own directory. Places added by path are listed on the Places page.',
   };
 }
 
 export function installationState() {
   const paths = xenityPaths();
+  const studioStatus = getStudioStatus();
+  // The Wine prefix is reported, not required: it only exists once Studio has
+  // been installed, and a missing prefix must never read as a broken install.
   const tracked = [
     { label: 'Runtime directory', path: paths.runtime, exists: exists(paths.runtime) },
-    { label: 'Applications directory', path: paths.applications, exists: exists(paths.applications) },
+    {
+      label: 'Wine prefix',
+      path: studioStatus.prefix.path,
+      exists: exists(studioStatus.prefix.path),
+      optional: true,
+    },
+    { label: 'Places directory', path: paths.applications, exists: exists(paths.applications) },
     { label: 'Cache directory', path: paths.cache, exists: exists(paths.cache) },
     { label: 'Logs directory', path: paths.logs, exists: exists(paths.logs) },
     { label: 'Configuration directory', path: paths.config, exists: exists(paths.config) },
   ];
-  const applications = listApplicationFiles();
+  const places = listPlaceFiles();
   const dependencies = checkDependencies();
-  const engineStatus = getEngineStatus();
-  const engine = {
-    name: engineStatus.engine,
-    present: engineStatus.present,
-    version: engineStatus.version,
-    command: engineStatus.command,
-    kind: engineStatus.kind,
-    runnable: engineStatus.runnable,
-    store: engineStatus.store.root,
-    build: engineStatus.build
-      ? { version: engineStatus.build.version, path: engineStatus.build.dir }
-      : null,
+  const studio = {
+    name: studioStatus.name,
+    present: studioStatus.studio.installed,
+    version: studioStatus.studio.version,
+    exe: studioStatus.studio.exe,
+    prefix: studioStatus.prefix.path,
+    prefixReady: studioStatus.prefix.initialized,
+    wine: studioStatus.wine.version,
+    running: studioStatus.instances,
   };
   const status = !dependencies.ok
     ? 'missing-dependencies'
-    : !engine.present
-      ? 'engine-missing'
-      : !engine.runnable
-        ? 'build-missing'
-        : 'ready';
+    : !studio.present
+      ? 'studio-missing'
+      : 'ready';
   const summary =
     status === 'missing-dependencies'
       ? `${dependencies.missingRequired.length} required dependenc${dependencies.missingRequired.length === 1 ? 'y is' : 'ies are'} missing.`
-      : status === 'engine-missing'
-        ? 'Cordial, the engine backend Xenity drives, is not installed.'
-        : status === 'build-missing'
-          ? `Cordial ${engine.version ?? ''} is installed, but it holds no verified Roblox build yet.`.replace('  ', ' ')
-          : `Cordial ${engine.version ?? ''} will run Roblox ${engine.build?.version ?? 'from its store'}.`.replace('  ', ' ');
+      : status === 'studio-missing'
+        ? studio.wine
+          ? 'Wine is installed, but no Roblox Studio build exists in the prefix yet.'
+          : 'Wine is not installed, so Roblox Studio cannot run yet.'
+        : `Roblox Studio ${studio.version ?? ''} is installed in ${studio.prefix}.`.replace('  ', ' ');
 
   return {
     root: paths.root,
     directories: tracked,
     configFile: path.join(paths.config, 'settings.json'),
-    directoriesOk: tracked.every((entry) => entry.exists || entry.path === paths.runtime),
-    applications,
+    directoriesOk: tracked
+      .filter((entry) => !entry.optional)
+      .every((entry) => entry.exists || entry.path === paths.runtime),
+    places,
     dependencies,
-    engine,
-    verified: dependencies.ok && engine.runnable,
+    studio,
+    verified: dependencies.ok && studio.present,
     status,
     summary,
     checkedAt: new Date().toISOString(),
@@ -174,3 +181,6 @@ export function repairInstallation() {
       : 'All Xenity directories were already present.',
   };
 }
+
+/** Legacy export names kept for callers that only need the file listing. */
+export const listApplicationFiles = listPlaceFiles;
