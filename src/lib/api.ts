@@ -1,5 +1,6 @@
 import type {
   AppImageRelease,
+  DependencyInstallState,
   Diagnostics,
   InstallationState,
   LaunchResult,
@@ -11,6 +12,8 @@ import type {
   StudioDoctorResult,
   StudioInstallState,
   StudioStatus,
+  SwapDrive,
+  SwapStatus,
   SystemInfo,
   UpdateCheck,
   RuntimeStatus,
@@ -99,6 +102,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ installerPath }),
     }),
+  dependenciesInstall: () => request<DependencyInstallState>('/api/dependencies/install'),
+  startDependencyInstall: () =>
+    request<DependencyInstallState>('/api/dependencies/install', { method: 'POST' }),
   installation: () => request<InstallationState>('/api/installation'),
   repair: () => request<{ created: string[]; message: string }>('/api/installation/repair', { method: 'POST' }),
   settings: () => request<{ settings: Settings; path: string }>('/api/settings'),
@@ -113,6 +119,14 @@ export const api = {
     request<{ removed: number; directory: string; message: string }>('/api/storage/clear-cache', {
       method: 'POST',
     }),
+  drives: () => request<SwapDrive[]>('/api/storage/drives'),
+  swap: () => request<SwapStatus>('/api/storage/swap'),
+  createSwap: (mountPoint: string) =>
+    request<SwapStatus>('/api/storage/swap', {
+      method: 'POST',
+      body: JSON.stringify({ mountPoint }),
+    }),
+  deleteSwap: () => request<SwapStatus>('/api/storage/swap', { method: 'DELETE' }),
   places: () => request<PlacesData>('/api/places'),
   addPlace: (name: string, file: string) =>
     request<{ place: { id: string } }>('/api/places', {

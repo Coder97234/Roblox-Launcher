@@ -1,8 +1,11 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { exists, xenityPaths } from './store.js';
 import { which } from './system_detection.js';
 import { getStudioStatus, WINE_INSTALL_HINT } from './studio.js';
+import { buildPrivileged, firstLine, PRIVILEGE_HINT, privilegeTool } from './privilege.js';
+import { info, warn } from './logging.js';
 
 /**
  * Dependency validation for Arch Linux. Every entry maps a binary Xenity wants
@@ -180,6 +183,139 @@ export function repairInstallation() {
       ? `Recreated ${created.length} missing Xenity director${created.length === 1 ? 'y' : 'ies'}.`
       : 'All Xenity directories were already present.',
   };
+}
+
+/* ------------------------------------------------------- dependency install */
+
+const installJob = {
+  status: 'idle',
+  phase: 'idle',
+  packages: [],
+  command: null,
+  lines: [],
+  error: null,
+  message: null,
+  startedAt: null,
+  finishedAt: null,
+};
+
+function pushLine(text) {
+  for (const line of String(text ?? '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    installJob.lines.push(trimmed.slice(0, 240));
+  }
+  while (installJob.lines.length > 120) installJob.lines.shift();
+}
+
+export function dependencyInstallStatus() {
+  return {
+    job: structuredClone(installJob),
+    dependencies: checkDependencies(),
+    privilege: privilegeTool(),
+  };
+}
+
+/** Every package Xenity wants, deduplicated, in dependency order. */
+function missingPackages(checks) {
+  return [...new Set(checks.checks.filter((check) => !check.present).map((check) => check.package))];
+}
+
+/**
+ * Install every missing package in one pacman run, through pkexec or sudo -n.
+ * Output is streamed into the job so the panel can show what pacman is doing.
+ */
+export async function startDependencyInstall() {
+  if (installJob.status === 'running') {
+    const conflict = new Error('A dependency install is already running.');
+    conflict.status = 409;
+    throw conflict;
+  }
+
+  const checks = checkDependencies();
+  const packages = missingPackages(checks);
+  installJob.status = 'running';
+  installJob.phase = 'checking';
+  installJob.packages = packages;
+  installJob.command = null;
+  installJob.lines = [];
+  installJob.error = null;
+  installJob.message = null;
+  installJob.startedAt = new Date().toISOString();
+  installJob.finishedAt = null;
+
+  if (packages.length === 0) {
+    installJob.status = 'done';
+    installJob.phase = 'done';
+    installJob.finishedAt = new Date().toISOString();
+    installJob.message = 'Every Xenity dependency is already installed.';
+    return dependencyInstallStatus();
+  }
+
+  const pacman = which('pacman');
+  const privilege = privilegeTool();
+  if (!pacman) {
+    installJob.status = 'failed';
+    installJob.phase = 'failed';
+    installJob.error = `Xenity installs its dependencies with pacman on Arch Linux, and this machine has no pacman. Install these packages with your distribution’s package manager: ${packages.join(' ')}.`;
+    installJob.finishedAt = new Date().toISOString();
+    return dependencyInstallStatus();
+  }
+  if (!privilege.available) {
+    installJob.status = 'failed';
+    installJob.phase = 'failed';
+    installJob.error = `Nothing on this machine can ask for root (pkexec or sudo), so pacman cannot run. ${PRIVILEGE_HINT}`;
+    installJob.finishedAt = new Date().toISOString();
+    return dependencyInstallStatus();
+  }
+
+  const command = `pacman -Sy --needed --noconfirm ${packages.join(' ')}`;
+  installJob.command = command;
+  installJob.phase = 'installing';
+  info('installation', 'Installing dependencies', { packages, privilege: privilege.label });
+
+  void (async () => {
+    try {
+      const { file, args } = buildPrivileged('pacman', ['-Sy', '--needed', '--noconfirm', ...packages]);
+      const child = spawn(file, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      pushLine(`$ ${command}`);
+      child.stdout?.on('data', (chunk) => pushLine(chunk));
+      child.stderr?.on('data', (chunk) => pushLine(chunk));
+      const code = await new Promise((resolve) => {
+        child.on('error', (cause) => {
+          pushLine(cause?.message ?? String(cause));
+          resolve(-1);
+        });
+        child.on('exit', (exitCode) => resolve(exitCode ?? -1));
+      });
+
+      const recheck = checkDependencies();
+      const stillMissing = missingPackages(recheck);
+      if (code === 0 && stillMissing.length === 0) {
+        installJob.status = 'done';
+        installJob.phase = 'done';
+        installJob.message = `${packages.length} package${packages.length === 1 ? '' : 's'} installed: ${packages.join(', ')}.`;
+        info('installation', installJob.message);
+      } else {
+        installJob.status = 'failed';
+        installJob.phase = 'failed';
+        installJob.error =
+          code !== 0
+            ? `pacman exited with code ${code}: ${firstLine(installJob.lines.slice().reverse().join('\n')) || 'no output'}`
+            : `pacman finished, but these binaries are still missing: ${stillMissing.join(', ')}.`;
+        warn('installation', installJob.error);
+      }
+    } catch (cause) {
+      installJob.status = 'failed';
+      installJob.phase = 'failed';
+      installJob.error = cause?.message ?? String(cause);
+      warn('installation', `Dependency install failed: ${installJob.error}`);
+    } finally {
+      installJob.finishedAt = new Date().toISOString();
+    }
+  })();
+
+  return dependencyInstallStatus();
 }
 
 /** Legacy export names kept for callers that only need the file listing. */

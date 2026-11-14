@@ -108,12 +108,30 @@ files are Roblox's own and are fetched by Roblox's installer, never bundled here
 Xenity at an existing prefix (`XENITY_WINE_PREFIX` or the Studio section) or a non-standard Wine
 binary (`XENITY_WINE_BIN`).
 
+## One-click dependencies and external storage as RAM
+
+The Studio page installs the whole dependency set itself: **Install all dependencies** runs one
+`pacman -Sy --needed --noconfirm wine winetricks cabextract vulkan-tools mesa-utils pciutils`
+through `pkexec` (or passwordless `sudo`) and streams pacman's own output back into the panel, so a
+failure names the package that failed instead of hiding it.
+
+The same page turns a microSD card or USB stick into extra memory. **Swap** fills the chosen mounted
+drive's free space with one swap file — `<mount>/.xenity-swap`, held 128 MB below full so the
+filesystem stays writable — then `chmod 600`, `mkswap` and `swapon` it. **Delete** runs `swapoff`
+and removes exactly that file. Xenity records the path it created, so delete can never touch
+anything else on the drive. Swap files need a Linux filesystem: ext2/3/4, XFS, F2FS or btrfs (btrfs
+gets copy-on-write disabled first); FAT and exFAT cards are refused with an explanation — reformat
+as ext4 to use them. Swap on a card is far slower than real RAM.
+
+Both actions escalate one command each through `pkexec`/`sudo`; Xenity itself never runs as root.
+
 ## What is real, and what is not
 
 Real: running Roblox's own Studio installer under Wine, creating and detecting the prefix and the
 Studio build inside it, opening Studio (with or without a place file) and tracking the process, the
 Wine/prefix/display/DXVK doctor checks, the single-file AppImage build (and its download from the
-launcher), system and graphics detection, dependency validation with Arch package names, persistent
+launcher), system and graphics detection, dependency validation with Arch package names, one-click dependency
+installation, external-drive swap files with a matching delete, persistent
 settings, place entries with favorites and launch history, structured logging, redacted diagnostic
 reports, storage reporting, cache cleanup, update checks, and the launch pipeline that stops at the
 first blocker with a what/why/next explanation.

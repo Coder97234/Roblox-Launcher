@@ -8,6 +8,8 @@ import { useSystem } from '../state/system';
 import { CheckIcon, CloseIcon, MinusIcon, PlayIcon, RefreshIcon, TerminalIcon } from '../components/Icons';
 import { Button, EmptyState, ErrorNotice, Panel, Spinner, StatusPill } from '../components/ui';
 import { StudioPanel } from '../components/StudioPanel';
+import { DependenciesPanel } from '../components/DependenciesPanel';
+import { SwapPanel } from '../components/SwapPanel';
 
 function StepIcon({ status }: { status: 'ok' | 'fail' | 'skipped' | 'pending' | 'active' }) {
   if (status === 'ok')
@@ -208,6 +210,10 @@ export function PlayPage() {
       </div>
 
       <StudioPanel />
+
+      <DependenciesPanel />
+
+      <SwapPanel />
 
       <Panel
         title="Launch logs"

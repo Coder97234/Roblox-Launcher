@@ -268,6 +268,78 @@ export type UpdateCheck = {
   checkedAt: string;
 };
 
+export type DependencyInstallState = {
+  job: {
+    status: 'idle' | 'running' | 'done' | 'failed';
+    phase: string;
+    packages: string[];
+    command: string | null;
+    lines: string[];
+    error: string | null;
+    message: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+  };
+  dependencies: InstallationState['dependencies'];
+  privilege: { command: string | null; args: string[]; label: string; available: boolean };
+};
+
+export type SwapDrive = {
+  device: string;
+  mountPoint: string;
+  label: string | null;
+  model: string | null;
+  filesystem: string | null;
+  sizeBytes: number;
+  freeBytes: number;
+  removable: boolean;
+  transport: string | null;
+  swapSizeBytes: number;
+  supportsSwap: boolean;
+  reason: string | null;
+  managedSwap: boolean;
+};
+
+export type SwapStatus = {
+  drives: SwapDrive[];
+  managed: {
+    file: string;
+    mountPoint: string;
+    device?: string;
+    label?: string | null;
+    sizeBytes: number;
+    createdAt: string;
+    active: boolean;
+    missing?: boolean;
+  } | null;
+  active: { file: string; type: string; sizeBytes: number; usedBytes: number }[];
+  tools: {
+    available: boolean;
+    missing: string[];
+    optionalMissing: string[];
+    privilege: string;
+    privilegeAvailable: boolean;
+    detail: string;
+  };
+  job: {
+    status: 'idle' | 'running' | 'done' | 'failed';
+    action: 'create' | 'remove' | null;
+    phase: string;
+    mountPoint: string | null;
+    file: string | null;
+    sizeBytes: number | null;
+    received: number;
+    percent: number;
+    error: string | null;
+    message: string | null;
+    lines: string[];
+    startedAt: string | null;
+    finishedAt: string | null;
+  };
+  reserveBytes: number;
+  checkedAt: string;
+};
+
 export type Diagnostics = {
   generatedAt: string;
   system: SystemInfo;

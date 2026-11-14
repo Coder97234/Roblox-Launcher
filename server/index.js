@@ -3,8 +3,10 @@ import { detectSystem } from './modules/system_detection.js';
 import { getRuntimeStatus } from './modules/runtime_manager.js';
 import {
   checkDependencies,
+  dependencyInstallStatus,
   installationState,
   repairInstallation,
+  startDependencyInstall,
 } from './modules/installation.js';
 import { getSettings, resetSettings, updateSettings, settingsFilePath } from './modules/settings.js';
 import {
@@ -21,6 +23,7 @@ import { clearCache, storageReport } from './modules/storage.js';
 import { checkForUpdates, versionInfo } from './modules/updater.js';
 import { recentLogs } from './modules/logging.js';
 import { appImageFile, appImageStatus } from './modules/release.js';
+import { deleteManagedSwap, listDrives, startSwap, swapStatus } from './modules/swap.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 8000);
@@ -70,6 +73,8 @@ app.post(
   ),
 );
 app.get('/api/dependencies', wrap(() => checkDependencies()));
+app.get('/api/dependencies/install', wrap(() => dependencyInstallStatus()));
+app.post('/api/dependencies/install', wrap(() => startDependencyInstall()));
 app.get('/api/installation', wrap(() => installationState()));
 app.post('/api/installation/repair', wrap(() => repairInstallation()));
 
@@ -82,6 +87,15 @@ app.post('/api/settings/reset', wrap(() => ({ settings: resetSettings() })));
 
 app.get('/api/storage', wrap(() => storageReport()));
 app.post('/api/storage/clear-cache', wrap(() => clearCache()));
+
+// External storage used as extra RAM: one Xenity-owned swap file per drive.
+app.get('/api/storage/drives', wrap(() => listDrives()));
+app.get('/api/storage/swap', wrap(() => swapStatus()));
+app.post(
+  '/api/storage/swap',
+  wrap((req) => startSwap({ mountPoint: req.body?.mountPoint })),
+);
+app.delete('/api/storage/swap', wrap(() => deleteManagedSwap()));
 
 app.get('/api/places', wrap(() => getPlaces()));
 app.post('/api/places', wrap((req) => ({ place: addPlace(req.body ?? {}) })));
