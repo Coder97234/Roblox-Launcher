@@ -38,12 +38,12 @@ function StepIcon({ status }: { status: 'ok' | 'fail' | 'skipped' | 'pending' | 
 
 const PIPELINE = [
   'Verify Xenity installation',
-  'Check runtime availability',
+  'Detect the Cordial engine',
   'Validate required dependencies',
-  'Verify Roblox application availability',
-  'Initialize the Android runtime',
-  'Start the application',
-  'Monitor the launched process',
+  'Find a launchable Roblox build',
+  'Ask Cordial what it will run',
+  'Start Roblox through Cordial',
+  'Track the launched process',
   'Report result',
 ];
 
@@ -115,9 +115,11 @@ export function PlayPage() {
               <span className="micro-value">{installation?.summary ?? 'Checking…'}</span>
             </div>
             <div>
-              <span className="micro-label">Runtime</span>
+              <span className="micro-label">Engine</span>
               <span className="micro-value">
-                {runtime?.available ? runtime.backendName : 'Unavailable'}
+                {runtime?.present
+                  ? `${runtime.backendName} ${runtime.engine.version ?? ''}`.trim()
+                  : 'Not installed'}
               </span>
             </div>
             <div>

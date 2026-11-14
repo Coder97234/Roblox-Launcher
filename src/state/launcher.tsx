@@ -37,8 +37,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
           notify({
             title: 'Roblox started',
             description: experienceName
-              ? `${experienceName} is launching.`
-              : 'The application runtime started successfully.',
+              ? `Cordial is starting ${experienceName}.`
+              : 'Cordial was asked to start Roblox; its output is in the Xenity log.',
             tone: 'success',
           });
         } else {

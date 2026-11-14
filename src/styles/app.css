@@ -1901,6 +1901,21 @@ code {
 
 /* ----------------------------------------------------------- diagnostics -- */
 
+.engine-doctor {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--text-soft);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+}
+
 .runtime-head {
   display: flex;
   align-items: center;

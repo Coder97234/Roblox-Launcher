@@ -1,5 +1,7 @@
 import type {
   Diagnostics,
+  EngineDoctorResult,
+  EngineStatus,
   InstallationState,
   LaunchResult,
   LibraryData,
@@ -83,6 +85,12 @@ export const api = {
   overview: () => request<Overview>('/api/overview'),
   system: () => request<SystemInfo>('/api/system'),
   runtime: () => request<RuntimeStatus>('/api/runtime'),
+  engine: () => request<EngineStatus>('/api/engine'),
+  engineDoctor: () => request<EngineDoctorResult>('/api/engine/doctor', { method: 'POST' }),
+  engineOpen: () =>
+    request<{ started: boolean; instance: { pid: number | null } | null }>('/api/engine/open', {
+      method: 'POST',
+    }),
   installation: () => request<InstallationState>('/api/installation'),
   repair: () => request<{ created: string[]; message: string }>('/api/installation/repair', { method: 'POST' }),
   settings: () => request<{ settings: Settings; path: string }>('/api/settings'),

@@ -1,20 +1,25 @@
-import { getRuntimeStatus } from './runtime_manager.js';
-import { checkDependencies, installationState, listApplicationFiles } from './installation.js';
-import { recordLaunch } from './library.js';
+import { checkDependencies, installationState } from './installation.js';
+import { getEngineStatus, launchEngine, readEngineReport, INSTALL_HINT } from './cordial.js';
+import { getLibrary, recordLaunch } from './library.js';
+import { getSettings } from './settings.js';
 import { error as logError, info } from './logging.js';
 
 /**
- * The launch pipeline described in the specification. Every step performs a real
- * check; execution stops at the first blocking step and the remaining steps are
- * reported as skipped rather than assumed to have succeeded.
+ * The launch pipeline. Every step performs a real check against real state, and
+ * execution stops at the first blocking step: the remaining steps are reported
+ * as skipped rather than assumed to have succeeded.
+ *
+ * Roblox is started by Cordial, which runs the official Android build natively.
+ * Xenity passes Cordial a profile and, when the library entry carries one, a
+ * place id; it never patches or repackages anything.
  */
 
 const STEP_ORDER = [
   'verify-installation',
-  'runtime-availability',
+  'engine-availability',
   'dependencies',
-  'application-availability',
-  'runtime-initialization',
+  'roblox-build',
+  'engine-report',
   'start-application',
   'monitor-process',
   'report',
@@ -22,16 +27,26 @@ const STEP_ORDER = [
 
 const LABELS = {
   'verify-installation': 'Verify Xenity installation',
-  'runtime-availability': 'Check runtime availability',
+  'engine-availability': 'Detect the Cordial engine',
   dependencies: 'Validate required dependencies',
-  'application-availability': 'Verify Roblox application availability',
-  'runtime-initialization': 'Initialize the Android runtime',
-  'start-application': 'Start the application',
-  'monitor-process': 'Monitor the launched process',
+  'roblox-build': 'Find a launchable Roblox build',
+  'engine-report': 'Ask Cordial what it will run',
+  'start-application': 'Start Roblox through Cordial',
+  'monitor-process': 'Track the launched process',
   report: 'Report result',
 };
 
-export function runLaunch({ experienceId = null } = {}) {
+/** The place id a library entry points at, when its URL carries one. */
+function resolveExperience(experienceId) {
+  if (!experienceId) return { name: null, placeId: null, url: null };
+  const { experiences } = getLibrary();
+  const experience = experiences.find((entry) => entry.id === experienceId) ?? null;
+  const url = experience?.url ?? '';
+  const match = url.match(/(?:\/games\/|[?&]placeId=)(\d{3,})/i);
+  return { name: experience?.name ?? null, placeId: match ? Number(match[1]) : null, url };
+}
+
+export async function runLaunch({ experienceId = null } = {}) {
   const startedAt = Date.now();
   const steps = [];
   let blocked = false;
@@ -55,19 +70,23 @@ export function runLaunch({ experienceId = null } = {}) {
     skipRemainingFrom(0);
   }
 
-  // 2 — Runtime availability.
-  const runtime = getRuntimeStatus();
+  // 2 — Is the engine backend on this machine?
+  const engine = getEngineStatus();
   if (!blocked) {
-    if (runtime.available) {
-      push('runtime-availability', 'ok', `${runtime.backendName} is ready.`);
+    if (engine.present) {
+      push(
+        'engine-availability',
+        'ok',
+        `${engine.engine} ${engine.version ?? '(version unreadable)'} found via ${engine.source}.`,
+      );
     } else {
-      push('runtime-availability', 'fail', runtime.reason);
+      push('engine-availability', 'fail', engine.engine + ' is not installed.');
       blocked = true;
       skipRemainingFrom(1);
     }
   }
 
-  // 3 — Dependencies.
+  // 3 — Supporting dependencies.
   const dependencies = blocked ? null : checkDependencies();
   if (!blocked) {
     if (dependencies.ok) {
@@ -83,37 +102,93 @@ export function runLaunch({ experienceId = null } = {}) {
     }
   }
 
-  // 4 — Roblox application availability.
-  const applications = blocked ? null : listApplicationFiles();
+  // 4 — A build Cordial would actually launch.
+  const build = blocked ? null : engine.store.runnableBuild;
   if (!blocked) {
-    if (applications.present) {
-      push('application-availability', 'ok', `Base APK found: ${applications.baseApk}.`);
+    if (build) {
+      push('roblox-build', 'ok', `Roblox ${build.version} is verified in ${build.dir}.`);
     } else {
       push(
-        'application-availability',
+        'roblox-build',
         'fail',
-        `No base APK in ${applications.directory}. Add an application bundle you are licensed to use.`,
+        engine.store.builds.length
+          ? `Cordial holds ${engine.store.builds.length} build(s) in ${engine.store.root}, but none is verified as launchable.`
+          : `Cordial's build store holds no Roblox build at ${engine.store.root ?? 'an unknown path'}.`,
       );
       blocked = true;
       skipRemainingFrom(3);
     }
   }
 
+  // 5 — Let Cordial say what it is about to run.
+  const report = blocked ? null : readEngineReport();
+  if (!blocked) {
+    if (report.ran) {
+      push(
+        'engine-report',
+        'ok',
+        `Cordial reports Roblox ${report.fields.roblox ?? 'unknown'}, installed as ${report.fields.install ?? 'unknown'}.`,
+      );
+    } else {
+      push('engine-report', 'fail', report.reason ?? 'Cordial did not answer.');
+      blocked = true;
+      skipRemainingFrom(4);
+    }
+  }
+
+  // 6 — Start it, through Cordial's own headless launcher.
+  const settings = getSettings();
+  const experience = resolveExperience(experienceId);
+  let started = null;
+  if (!blocked) {
+    started = await launchEngine({
+      placeId: experience.placeId,
+      profile: settings.runtime.profile,
+      fullscreen: false,
+    });
+    if (started.started) {
+      push(
+        'start-application',
+        'ok',
+        experience.placeId
+          ? `Cordial started (pid ${started.instance?.pid ?? 'unknown'}) and was asked to join place ${experience.placeId}.`
+          : `Cordial started (pid ${started.instance?.pid ?? 'unknown'}) on profile ${settings.runtime.profile}.`,
+      );
+    } else {
+      push('start-application', 'fail', started.error?.message ?? 'Cordial did not start.');
+      blocked = true;
+      skipRemainingFrom(5);
+    }
+  }
+
+  // 7 — Track it.
+  if (!blocked) {
+    push(
+      'monitor-process',
+      'ok',
+      `Xenity is tracking pid ${started.instance?.pid ?? 'unknown'}; Cordial's output is streamed into the Xenity log.`,
+    );
+  }
+
+  // 8 — Report.
   const failureStep = steps.find((step) => step.status === 'fail') ?? null;
   const outcome = failureStep ? 'failed' : 'succeeded';
-  const durationMs = Date.now() - startedAt;
+  if (!failureStep) {
+    push('report', 'ok', 'Cordial was asked to start Roblox and answered. The game window is Cordial’s.');
+  }
 
-  const error = failureStep
-    ? buildError(failureStep, runtime, dependencies, applications)
-    : null;
+  const durationMs = Date.now() - startedAt;
+  const error = failureStep ? buildError(failureStep, engine, dependencies, report, started) : null;
 
   if (error) logError('launcher', `Launch failed: ${error.what}`, { step: failureStep.id });
-  else info('launcher', 'Launch succeeded');
+  else info('launcher', 'Launch handed to Cordial');
 
   recordLaunch({
     experienceId,
     outcome,
-    message: error ? error.what : 'Application started.',
+    message: error
+      ? error.what
+      : `Cordial started Roblox${experience.name ? ` — ${experience.name}` : ''}${experience.placeId ? ` (place ${experience.placeId})` : ''}.`,
   });
 
   return {
@@ -122,19 +197,23 @@ export function runLaunch({ experienceId = null } = {}) {
     durationMs,
     steps,
     error,
-    runtime: { available: runtime.available, backendName: runtime.backendName },
-    note: 'Xenity drives the runtime only through its public interfaces; it never patches Roblox binaries or bypasses integrity checks.',
+    runtime: { available: engine.present && engine.runnable, backendName: engine.engine },
+    instance: started?.instance
+      ? { id: started.instance.id, pid: started.instance.pid, status: started.instance.status }
+      : null,
+    experience: { id: experienceId, name: experience.name, placeId: experience.placeId },
+    note: 'Xenity starts Roblox through Cordial’s published command line and never patches the engine or bypasses its integrity checks.',
   };
 }
 
 /** Every failure explains what happened, why, and what to do next. */
-function buildError(step, runtime, dependencies, applications) {
-  if (step.id === 'runtime-availability') {
+function buildError(step, engine, dependencies, report, started) {
+  if (step.id === 'engine-availability') {
     return {
-      what: 'The Android runtime Xenity needs is not available, so Roblox was not started.',
-      why: runtime.reason,
-      next: runtime.next,
-      code: 'XEN-RUNTIME-001',
+      what: 'The engine backend Xenity drives is not installed, so Roblox was not started.',
+      why: `${engine.engine} runs Roblox's official Android build natively on Linux; without it there is nothing to launch.`,
+      next: `Install it with: ${INSTALL_HINT} — then launch again.`,
+      code: 'XEN-ENGINE-001',
       step: step.id,
     };
   }
@@ -150,12 +229,31 @@ function buildError(step, runtime, dependencies, applications) {
       step: step.id,
     };
   }
-  if (step.id === 'application-availability') {
+  if (step.id === 'roblox-build') {
     return {
-      what: 'No Roblox application bundle is installed.',
-      why: `Xenity looked in ${applications?.directory ?? 'the application directory'} and found no base.apk.`,
-      next: 'Add an application bundle from an authorized source in the Installation section, then launch again.',
-      code: 'XEN-APP-003',
+      what: 'Cordial has no verified Roblox build to run.',
+      why: step.detail,
+      next: 'Open Cordial (the Engine panel in Diagnostics can do it) and use its Download Roblox button, then launch again.',
+      code: 'XEN-BUILD-002',
+      step: step.id,
+    };
+  }
+  if (step.id === 'engine-report') {
+    return {
+      what: 'Cordial did not answer its own diagnostics request.',
+      why: report?.reason ?? step.detail,
+      next: 'Run Cordial on its own once to confirm it starts, then check the Xenity log for the engine output.',
+      code: 'XEN-ENGINE-003',
+      step: step.id,
+    };
+  }
+  if (step.id === 'start-application') {
+    return {
+      what: 'Cordial was asked to start Roblox and did not.',
+      why: started?.error?.message ?? step.detail,
+      next:
+        'Check that a display session is available to the Xenity service, then run the Cordial doctor in Diagnostics for the specific blocker.',
+      code: 'XEN-START-005',
       step: step.id,
     };
   }

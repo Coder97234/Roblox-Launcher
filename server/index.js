@@ -15,6 +15,12 @@ import {
   toggleFavorite,
 } from './modules/library.js';
 import { runLaunch } from './modules/launch.js';
+import {
+  getEngineStatus,
+  openEngine,
+  readEngineReport,
+  runDoctor,
+} from './modules/cordial.js';
 import { buildDiagnostics, buildReportText, logsForExport } from './modules/diagnostics.js';
 import { clearCache, storageReport } from './modules/storage.js';
 import { checkForUpdates, versionInfo } from './modules/updater.js';
@@ -55,6 +61,10 @@ app.get(
 
 app.get('/api/system', wrap(() => detectSystem()));
 app.get('/api/runtime', wrap(() => getRuntimeStatus()));
+app.get('/api/engine', wrap(() => getEngineStatus()));
+app.get('/api/engine/report', wrap(() => readEngineReport()));
+app.post('/api/engine/doctor', wrap(() => runDoctor()));
+app.post('/api/engine/open', wrap(() => openEngine()));
 app.get('/api/dependencies', wrap(() => checkDependencies()));
 app.get('/api/installation', wrap(() => installationState()));
 app.post('/api/installation/repair', wrap(() => repairInstallation()));

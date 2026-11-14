@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { bytes, clockTime, percent, uptime } from '../lib/format';
-import type { Diagnostics } from '../lib/types';
+import type { Diagnostics, EngineDoctorResult } from '../lib/types';
 import { useNotifications } from '../state/notifications';
-import { CopyIcon, DownloadIcon, RefreshIcon, ShieldIcon } from '../components/Icons';
+import { CopyIcon, DownloadIcon, RefreshIcon, ShieldIcon, WrenchIcon } from '../components/Icons';
 import { Button, ErrorNotice, KeyValue, Panel, Spinner, StatusPill } from '../components/ui';
 
 export function DiagnosticsPage() {
@@ -11,7 +11,8 @@ export function DiagnosticsPage() {
   const [data, setData] = useState<Diagnostics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ what: string; why: string; next: string } | null>(null);
-  const [busy, setBusy] = useState<'copy' | 'export' | 'repair' | null>(null);
+  const [busy, setBusy] = useState<'copy' | 'export' | 'repair' | 'doctor' | 'open' | null>(null);
+  const [doctor, setDoctor] = useState<EngineDoctorResult | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -94,6 +95,49 @@ export function DiagnosticsPage() {
     }
   };
 
+  const runEngineDoctor = async () => {
+    setBusy('doctor');
+    try {
+      const result = await api.engineDoctor();
+      setDoctor(result);
+      notify({
+        title: result.blocked ? 'Cordial doctor found a blocker' : 'Cordial doctor passed',
+        description: result.reason ?? '',
+        tone: result.blocked ? 'warn' : 'success',
+      });
+    } catch (cause) {
+      notify({
+        title: 'Doctor could not run',
+        description: cause instanceof ApiError ? cause.what : 'Unknown error',
+        tone: 'danger',
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const openEngine = async () => {
+    setBusy('open');
+    try {
+      const result = await api.engineOpen();
+      notify({
+        title: result.started ? 'Cordial opened' : 'Cordial did not open',
+        description: result.started
+          ? 'Use its Download Roblox button if it has no build yet.'
+          : 'Check the engine output in the Xenity log.',
+        tone: result.started ? 'success' : 'danger',
+      });
+    } catch (cause) {
+      notify({
+        title: 'Cordial could not be opened',
+        description: cause instanceof ApiError ? cause.what : 'Unknown error',
+        tone: 'danger',
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const system = data?.system;
   const runtime = data?.runtime;
   const installation = data?.installation;
@@ -157,34 +201,76 @@ export function DiagnosticsPage() {
       </Panel>
 
       <div className="grid grid--main">
-        <Panel title="Runtime" subtitle="Android backend detection">
+        <Panel
+          title="Engine"
+          subtitle="Cordial detection, build store and machine checks"
+          actions={
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void openEngine()}
+                disabled={busy !== null || !runtime?.present}
+              >
+                Open Cordial
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={busy === 'doctor' ? <Spinner size={13} /> : <WrenchIcon size={14} />}
+                onClick={() => void runEngineDoctor()}
+                disabled={busy !== null || !runtime?.present}
+              >
+                Run doctor
+              </Button>
+            </>
+          }
+        >
           {runtime && (
             <>
               <div className="runtime-head">
                 <StatusPill tone={runtime.available ? 'ok' : 'warn'}>
-                  {runtime.available ? `${runtime.backendName} ready` : 'Unavailable'}
+                  {runtime.available ? `${runtime.backendName} ready` : 'Launch blocked'}
                 </StatusPill>
                 <span className="muted">state: {runtime.state}</span>
               </div>
               <p className="panel__text">{runtime.reason}</p>
-              <ul className="backend-list">
-                {runtime.backends.map((backend) => (
-                  <li key={backend.id} className="backend">
-                    <span className={`backend__dot backend__dot--${backend.present ? 'ok' : 'muted'}`} />
-                    <div>
-                      <p className="backend__name">{backend.name}</p>
-                      <p className="backend__detail">{backend.detail}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="kv-grid">
+                <KeyValue
+                  label="Engine"
+                  value={`${runtime.engine.engine} ${runtime.engine.version ?? ''}`.trim()}
+                  hint={runtime.engine.command ?? runtime.engine.install}
+                  tone={runtime.present ? 'ok' : 'warn'}
+                />
+                <KeyValue
+                  label="Install"
+                  value={runtime.engine.kind ?? 'not installed'}
+                  hint={runtime.engine.source ?? ''}
+                />
+                <KeyValue
+                  label="Roblox build"
+                  value={runtime.engine.build?.version ?? 'none'}
+                  hint={runtime.engine.store.root ?? 'no build store found'}
+                  tone={runtime.engine.runnable ? 'ok' : 'warn'}
+                />
+                <KeyValue
+                  label="Processes"
+                  value={String(runtime.engine.instances)}
+                  hint="started by Xenity"
+                />
+              </div>
+              {doctor && (
+                <pre className="engine-doctor">
+                  {doctor.lines.length ? doctor.lines.join('\n') : doctor.reason}
+                </pre>
+              )}
             </>
           )}
         </Panel>
 
         <Panel
           title="Installation"
-          subtitle="Directories, bundles and dependencies"
+          subtitle="Directories, engine build and dependencies"
           actions={
             <Button
               variant="secondary"
@@ -203,7 +289,11 @@ export function DiagnosticsPage() {
                 <StatusPill tone={installation.dependencies.ok ? 'ok' : 'warn'}>
                   {installation.dependencies.ok ? 'Dependencies satisfied' : 'Dependencies missing'}
                 </StatusPill>
-                <span className="muted">{installation.applications.present ? 'bundle present' : 'no bundle'}</span>
+                <span className="muted">
+                  {installation.engine.runnable
+                    ? `Roblox ${installation.engine.build?.version ?? 'build'} ready`
+                    : 'no launchable build'}
+                </span>
               </div>
               <ul className="dep-list">
                 {installation.dependencies.checks.map((check) => (
@@ -217,16 +307,21 @@ export function DiagnosticsPage() {
                   </li>
                 ))}
               </ul>
-              <p className="dep__install-hint">
-                Install missing packages on Arch with{' '}
-                <code>
-                  sudo pacman -S{' '}
-                  {installation.dependencies.checks
-                    .filter((check) => !check.present && check.required)
-                    .map((check) => check.package)
-                    .join(' ') || '<package>'}
-                </code>
-              </p>
+              {installation.dependencies.missingRequired.length > 0 && (
+                <p className="dep__install-hint">
+                  Install what Xenity requires on Arch with{' '}
+                  <code>
+                    sudo pacman -S{' '}
+                    {installation.dependencies.missingRequired.map((check) => check.package).join(' ')}
+                  </code>
+                </p>
+              )}
+              {installation.engine.present ? null : (
+                <p className="dep__install-hint">
+                  The engine itself is installed separately: <code>{installation.engine.command ?? 'cordial-shell'}</code>{' '}
+                  was not found. See the Engine panel for the command.
+                </p>
+              )}
             </>
           )}
         </Panel>

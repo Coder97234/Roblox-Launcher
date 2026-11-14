@@ -2,33 +2,32 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { exists, xenityPaths } from './store.js';
 import { which } from './system_detection.js';
+import { getEngineStatus, INSTALL_HINT } from './cordial.js';
 
 /**
  * Dependency validation for Arch Linux. Every entry maps a binary Xenity wants
  * to the official Arch package that provides it, so a missing dependency can be
  * explained with the exact command the user needs instead of a bare code.
+ *
+ * The engine itself (Cordial) is not a plain binary dependency: it is a native
+ * package or a Flatpak, so its presence is decided by cordial.js and reported
+ * separately as `installation.engine`.
  */
 const DEPENDENCIES = [
   {
-    binary: 'waydroid',
-    package: 'waydroid',
-    purpose: 'Android runtime backend used to execute the Roblox Android application.',
-    required: true,
+    binary: 'cordial-shell',
+    package: 'cordial-bin',
+    purpose: 'Engine backend: runs the Roblox Android build natively (a Flatpak install counts too).',
+    required: false,
+    repo: 'aur',
+    installCommand: INSTALL_HINT,
+  },
+  {
+    binary: 'flatpak',
+    package: 'flatpak',
+    purpose: 'The usual way Cordial is installed, and where its build store lives when it is.',
+    required: false,
     repo: 'extra',
-  },
-  {
-    binary: 'unzip',
-    package: 'unzip',
-    purpose: 'Expand application bundles during installation and validation.',
-    required: true,
-    repo: 'core',
-  },
-  {
-    binary: 'curl',
-    package: 'curl',
-    purpose: 'Connectivity checks and update metadata retrieval.',
-    required: true,
-    repo: 'core',
   },
   {
     binary: 'vulkaninfo',
@@ -47,7 +46,7 @@ const DEPENDENCIES = [
   {
     binary: 'adb',
     package: 'android-tools',
-    purpose: 'Inspect the Android runtime and installed packages.',
+    purpose: 'Only needed for Cordial’s Quest import path, not for an ordinary launch.',
     required: false,
     repo: 'extra',
   },
@@ -67,7 +66,7 @@ export function checkDependencies() {
       ...dependency,
       present: Boolean(found),
       path: found || null,
-      installCommand: `sudo pacman -S ${dependency.package}`,
+      installCommand: dependency.installCommand ?? `sudo pacman -S ${dependency.package}`,
     };
   });
   const missingRequired = checks.filter((check) => check.required && !check.present);
@@ -111,6 +110,34 @@ export function installationState() {
   ];
   const applications = listApplicationFiles();
   const dependencies = checkDependencies();
+  const engineStatus = getEngineStatus();
+  const engine = {
+    name: engineStatus.engine,
+    present: engineStatus.present,
+    version: engineStatus.version,
+    command: engineStatus.command,
+    kind: engineStatus.kind,
+    runnable: engineStatus.runnable,
+    store: engineStatus.store.root,
+    build: engineStatus.build
+      ? { version: engineStatus.build.version, path: engineStatus.build.dir }
+      : null,
+  };
+  const status = !dependencies.ok
+    ? 'missing-dependencies'
+    : !engine.present
+      ? 'engine-missing'
+      : !engine.runnable
+        ? 'build-missing'
+        : 'ready';
+  const summary =
+    status === 'missing-dependencies'
+      ? `${dependencies.missingRequired.length} required dependenc${dependencies.missingRequired.length === 1 ? 'y is' : 'ies are'} missing.`
+      : status === 'engine-missing'
+        ? 'Cordial, the engine backend Xenity drives, is not installed.'
+        : status === 'build-missing'
+          ? `Cordial ${engine.version ?? ''} is installed, but it holds no verified Roblox build yet.`.replace('  ', ' ')
+          : `Cordial ${engine.version ?? ''} will run Roblox ${engine.build?.version ?? 'from its store'}.`.replace('  ', ' ');
 
   return {
     root: paths.root,
@@ -119,17 +146,10 @@ export function installationState() {
     directoriesOk: tracked.every((entry) => entry.exists || entry.path === paths.runtime),
     applications,
     dependencies,
-    verified: dependencies.ok && applications.present,
-    status: !dependencies.ok
-      ? 'missing-dependencies'
-      : !applications.present
-        ? 'application-missing'
-        : 'ready',
-    summary: !dependencies.ok
-      ? `${dependencies.missingRequired.length} required dependenc${dependencies.missingRequired.length === 1 ? 'y is' : 'ies are'} missing.`
-      : !applications.present
-        ? 'Dependencies are satisfied, but no Roblox application bundle has been added yet.'
-        : 'Dependencies and application bundle look complete.',
+    engine,
+    verified: dependencies.ok && engine.runnable,
+    status,
+    summary,
     checkedAt: new Date().toISOString(),
   };
 }

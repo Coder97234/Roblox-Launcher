@@ -24,7 +24,9 @@ export const DEFAULT_SETTINGS = {
     fpsCap: 'auto',
   },
   runtime: {
-    location: '/var/lib/waydroid',
+    // The Cordial profile Xenity starts games on. Keeping Xenity on its own
+    // profile leaves a launcher the user already has open untouched.
+    profile: 'xenity',
     autoValidate: true,
     restartPolicy: 'ask',
   },
@@ -71,8 +73,9 @@ function sanitize(patch, base) {
   }
   if (patch.runtime) {
     const r = patch.runtime;
-    if (typeof r.location === 'string' && r.location.startsWith('/'))
-      next.runtime.location = r.location.slice(0, 200);
+    // Cordial's own rule for a profile name: letters, digits, - and _.
+    if (typeof r.profile === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(r.profile))
+      next.runtime.profile = r.profile;
     if (typeof r.autoValidate === 'boolean') next.runtime.autoValidate = r.autoValidate;
     if (typeof r.restartPolicy === 'string')
       next.runtime.restartPolicy = clampChoice(

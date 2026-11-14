@@ -87,14 +87,18 @@ export function HomePage() {
               : 'Collecting system information.'}
           </p>
           <div className="hero__chips">
-            <StatusPill tone={runtime?.implemented ? 'ok' : 'warn'}>
-              {runtime?.implemented ? 'Runtime integrated' : 'Runtime not implemented'}
+            <StatusPill tone={runtime?.present ? 'ok' : 'warn'}>
+              {runtime?.present
+                ? `${runtime.backendName} ${runtime.engine.version ?? ''} detected`.replace('  ', ' ').trim()
+                : 'Cordial engine not installed'}
             </StatusPill>
-            <StatusPill tone={installation?.applications.present ? 'ok' : 'warn'}>
-              {installation?.applications.present ? 'Roblox app present' : 'Roblox app missing'}
+            <StatusPill tone={installation?.engine.runnable ? 'ok' : 'warn'}>
+              {installation?.engine.runnable
+                ? `Roblox ${installation.engine.build?.version ?? 'build'} ready`
+                : 'Roblox build missing'}
             </StatusPill>
             <StatusPill tone={runtime?.available ? 'ok' : 'muted'}>
-              {runtime?.available ? `${runtime.backendName} ready` : 'No Android backend'}
+              {runtime?.available ? 'Launch ready' : 'Launch blocked'}
             </StatusPill>
           </div>
         </div>
@@ -149,8 +153,12 @@ export function HomePage() {
               </strong>
             </li>
             <li>
-              <span>Runtime</span>
-              <strong>{runtime?.available ? runtime.backendName : 'unavailable'}</strong>
+              <span>Engine</span>
+              <strong>
+                {runtime?.present
+                  ? `${runtime.backendName} ${runtime.engine.version ?? ''}`.trim()
+                  : 'not installed'}
+              </strong>
             </li>
             <li>
               <span>Last launch</span>

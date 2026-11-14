@@ -86,6 +86,19 @@ export function buildReportText() {
   }
   lines.push('');
 
+  lines.push('[ENGINE]');
+  const engine = runtime.engine;
+  lines.push(`Engine: ${engine.engine} (${engine.licence}) — ${engine.present ? 'installed' : 'not installed'}`);
+  if (engine.command) lines.push(`Command: ${engine.command}`);
+  lines.push(`Engine version: ${engine.version ?? 'unknown'}`);
+  lines.push(`Install method: ${engine.kind ?? 'unknown'}`);
+  lines.push(
+    `Build store: ${engine.store.root ?? 'none'} — ${engine.store.builds.length} build(s)`,
+  );
+  lines.push(`Runnable build: ${engine.runnable ? engine.build?.version : 'none'}`);
+  lines.push(`Running engine processes: ${engine.instances}`);
+  lines.push('');
+
   lines.push('[INSTALLATION]');
   lines.push(`Data root: ${installation.root}`);
   lines.push(`Status: ${installation.status} — ${installation.summary}`);

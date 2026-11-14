@@ -261,33 +261,47 @@ export function SettingsPage() {
         )}
 
         {section === 'runtime' && (
-          <Panel title="Runtime" subtitle="Android runtime configuration">
+          <Panel title="Runtime" subtitle="Cordial engine and the profile Xenity runs on">
             <div className="kv-grid kv-grid--wide">
-              <KeyValue label="Backend" value={runtime?.backendName ?? 'unknown'} hint={runtime?.state ?? ''} />
               <KeyValue
-                label="Version"
-                value={runtime?.implemented ? 'detected' : 'not installed'}
-                hint="Xenity does not ship a runtime in this build"
-                tone={runtime?.available ? 'ok' : 'warn'}
+                label="Engine"
+                value={`${runtime?.backendName ?? 'Cordial'} ${runtime?.engine.version ?? ''}`.trim()}
+                hint={runtime?.engine.command ?? 'not installed'}
+                tone={runtime?.present ? 'ok' : 'warn'}
               />
-              <KeyValue label="Status" value={runtime?.available ? 'available' : 'unavailable'} hint={runtime?.checkedAt ? relativeTime(runtime.checkedAt) : ''} />
+              <KeyValue
+                label="Install"
+                value={runtime?.engine.kind ?? 'not installed'}
+                hint={runtime?.engine.source ?? ''}
+              />
+              <KeyValue
+                label="Roblox build"
+                value={runtime?.engine.build?.version ?? 'none'}
+                hint={runtime?.engine.store.root ?? 'no build store found'}
+                tone={runtime?.engine.runnable ? 'ok' : 'warn'}
+              />
+              <KeyValue
+                label="Status"
+                value={runtime?.available ? 'launch ready' : runtime?.state ?? 'unknown'}
+                hint={runtime?.checkedAt ? relativeTime(runtime.checkedAt) : ''}
+              />
             </div>
             <div className="field-stack">
               <TextField
-                label="Runtime location"
-                description="Where the Android runtime keeps its images and system data."
-                value={draft.runtime.location}
-                onChange={(value) => patch('runtime', { location: value })}
+                label="Cordial profile"
+                description="The profile Xenity starts games on. A profile of its own leaves any Cordial launcher you already have open untouched."
+                value={draft.runtime.profile}
+                onChange={(value) => patch('runtime', { profile: value })}
               />
               <Toggle
                 label="Validate on start"
-                description="Re-check the runtime before every launch."
+                description="Re-check the engine and its build store before every launch."
                 checked={draft.runtime.autoValidate}
                 onChange={(value) => patch('runtime', { autoValidate: value })}
               />
               <Select
                 label="On unexpected exit"
-                description="What Xenity should do when the runtime stops."
+                description="What Xenity should do when the engine stops."
                 value={draft.runtime.restartPolicy}
                 onChange={(value) => patch('runtime', { restartPolicy: value })}
                 options={[
@@ -307,13 +321,18 @@ export function SettingsPage() {
                 icon={<WrenchIcon size={14} />}
                 onClick={() =>
                   notify({
-                    title: 'No runtime to restart',
-                    description: runtime?.reason ?? 'Xenity has no Android runtime running in this build.',
-                    tone: 'warn',
+                    title: runtime?.engine.instances
+                      ? `${runtime.engine.instances} Cordial process${runtime.engine.instances === 1 ? '' : 'es'} running`
+                      : 'No engine process running',
+                    description:
+                      runtime?.engine.instances
+                        ? 'Started by Xenity in this session; its output is in the Xenity log.'
+                        : runtime?.reason ?? 'Xenity has not started Cordial in this session.',
+                    tone: runtime?.engine.instances ? 'info' : 'warn',
                   })
                 }
               >
-                Restart runtime
+                Running processes
               </Button>
             </div>
             <p className="panel__text">{runtime?.next}</p>

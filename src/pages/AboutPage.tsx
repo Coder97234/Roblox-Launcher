@@ -11,12 +11,14 @@ const IMPLEMENTED = [
   'Dependency validation with exact Arch package names',
   'Structured logging with rotation and redacted export',
   'Eight-step launch sequence that stops honestly at the first blocker',
+  'Roblox started through Cordial, which runs the official Android build natively',
+  'Engine detection for a native package or a Flatpak install, plus its build store',
+  'Cordial doctor checks and its diagnostic report, surfaced in Diagnostics',
   'Storage reporting and Xenity-scoped cache cleanup',
 ];
 
 const PLANNED = [
-  'Android runtime integration (Waydroid backend first)',
-  'APK split validation: manifest, ABI and signature checks',
+  'APK manifest, ABI and signature inspection inside Xenity itself',
   'Graphics backend, shader cache and frame pacing',
   'Input translation for keyboard, mouse and controllers',
   'Deep-link launching through official Roblox mechanisms',
@@ -45,8 +47,10 @@ export function AboutPage() {
           <div className="about-hero__chips">
             <StatusPill tone="accent">Developer: Xen</StatusPill>
             <StatusPill tone="muted">Platform: Arch Linux</StatusPill>
-            <StatusPill tone={runtime?.implemented ? 'ok' : 'warn'}>
-              {runtime?.implemented ? 'Runtime integrated' : 'Runtime not implemented'}
+            <StatusPill tone={runtime?.present ? 'ok' : 'warn'}>
+              {runtime?.present
+                ? `Engine: ${runtime.backendName} ${runtime.engine.version ?? ''}`.replace('  ', ' ').trim()
+                : 'Engine not installed'}
             </StatusPill>
           </div>
         </div>
@@ -55,10 +59,20 @@ export function AboutPage() {
       <div className="grid grid--main">
         <Panel title="What this build is" subtitle="Milestone one of the launcher">
           <p className="panel__text">
-            Xenity is a Linux Roblox launcher. This build is the launcher shell: window layout,
+            Xenity is a Linux Roblox launcher. This build is the launcher shell — window layout,
             navigation, dashboards, persisted configuration, system detection, logging and the launch
-            pipeline. It deliberately contains no Roblox runtime, so it never claims a launch it did
-            not perform.
+            pipeline — wired to a real engine backend. Roblox is started through{' '}
+            <a
+              className="text-link"
+              href="https://github.com/luohoa97/cordial"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Cordial
+            </a>
+            , which runs Roblox&rsquo;s official Android build natively on Linux. Xenity owns none of
+            that runtime: it detects it, reads its build store and starts it through the command line
+            Cordial publishes. It never claims a launch it did not perform.
           </p>
           <p className="panel__text">
             The interface is written in React and TypeScript behind a thin Node service that owns
@@ -71,8 +85,17 @@ export function AboutPage() {
           <div className="kv-grid">
             <KeyValue label="Version" value={`Xenity ${overview?.version.version ?? '0.1.0'}`} hint={`${overview?.version.channel ?? 'stable'} channel`} />
             <KeyValue label="Target" value="Arch Linux" hint={overview?.system.distribution.name ?? ''} />
-            <KeyValue label="Runtime" value={runtime?.backendName ?? 'none'} hint={runtime?.state ?? ''} />
+            <KeyValue
+              label="Engine"
+              value={`${runtime?.backendName ?? 'Cordial'} ${runtime?.engine.version ?? ''}`.trim()}
+              hint={runtime?.engine.kind ? `${runtime.engine.kind} install` : 'not installed'}
+              tone={runtime?.present ? 'ok' : 'warn'}
+            />
           </div>
+          <p className="panel__footnote">
+            Engine backend: Cordial, GPL-3.0-or-later, github.com/luohoa97/cordial. Xenity is
+            distributed under the same licence because it depends on it.
+          </p>
         </Panel>
 
         <Panel title="Security commitments" subtitle="Non-negotiable">
