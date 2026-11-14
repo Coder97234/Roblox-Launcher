@@ -1,6 +1,7 @@
 import { useSystem } from '../state/system';
 import { CheckIcon, CloseIcon, ShieldIcon } from '../components/Icons';
 import { KeyValue, Panel, StatusPill } from '../components/ui';
+import { ReleasePanel } from '../components/ReleasePanel';
 
 const IMPLEMENTED = [
   'Main application window shell with persistent navigation',
@@ -12,6 +13,8 @@ const IMPLEMENTED = [
   'Structured logging with rotation and redacted export',
   'Eight-step launch sequence that stops honestly at the first blocker',
   'Roblox started through Cordial, which runs the official Android build natively',
+  'The Cordial engine installed and updated by Xenity itself, from the official release',
+  'A single-file AppImage built by the release workflow in this repository',
   'Engine detection for a native package or a Flatpak install, plus its build store',
   'Cordial doctor checks and its diagnostic report, surfaced in Diagnostics',
   'Storage reporting and Xenity-scoped cache cleanup',
@@ -56,6 +59,8 @@ export function AboutPage() {
         </div>
       </section>
 
+      <ReleasePanel />
+
       <div className="grid grid--main">
         <Panel title="What this build is" subtitle="Milestone one of the launcher">
           <p className="panel__text">
@@ -76,11 +81,9 @@ export function AboutPage() {
           </p>
           <p className="panel__text">
             The interface is written in React and TypeScript behind a thin Node service that owns
-            every privileged operation. That split is deliberate: the same interface loads unchanged
-            inside a Tauri window (WebKitGTK on Arch), while the service layer keeps filesystem,
-            process and detection code out of the renderer. Tauri is the chosen shell because it
-            ships a small native binary, uses the system WebKit runtime instead of bundling Chromium,
-            and integrates cleanly with Arch packaging.
+            every privileged operation. The AppImage wraps exactly that: the compiled interface and
+            the service in one executable, with the service bound to loopback and the window loading
+            it from the same origin. Filesystem, process and detection code stay out of the renderer.
           </p>
           <div className="kv-grid">
             <KeyValue label="Version" value={`Xenity ${overview?.version.version ?? '0.1.0'}`} hint={`${overview?.version.channel ?? 'stable'} channel`} />

@@ -1,0 +1,7 @@
+{
+  "name": "xenity",
+  "productName": "Xenity",
+  "description": "Xenity — Linux Roblox launcher",
+  "main": "main.cjs",
+  "private": true
+}

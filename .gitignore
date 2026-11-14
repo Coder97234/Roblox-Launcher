@@ -3,3 +3,8 @@ dist/
 data/
 *.local
 .DS_Store
+
+# AppImage build output and its scratch directory
+release/
+.appimage/
+tsconfig.tsbuildinfo

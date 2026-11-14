@@ -7,6 +7,7 @@ import { useNotifications } from '../state/notifications';
 import { useSystem } from '../state/system';
 import { CheckIcon, CloseIcon, MinusIcon, PlayIcon, RefreshIcon, TerminalIcon } from '../components/Icons';
 import { Button, EmptyState, ErrorNotice, Panel, Spinner, StatusPill } from '../components/ui';
+import { EnginePanel } from '../components/EnginePanel';
 
 function StepIcon({ status }: { status: 'ok' | 'fail' | 'skipped' | 'pending' | 'active' }) {
   if (status === 'ok')
@@ -204,6 +205,8 @@ export function PlayPage() {
           <p className="panel__footnote">{result?.note}</p>
         </Panel>
       </div>
+
+      <EnginePanel />
 
       <Panel
         title="Launch logs"

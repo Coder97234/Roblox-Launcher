@@ -10,7 +10,8 @@
     "start:api": "node server/index.js",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "appimage": "bash packaging/appimage/build.sh"
   },
   "dependencies": {
     "express": "^5.1.0",

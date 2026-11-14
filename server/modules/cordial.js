@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { which } from './system_detection.js';
 import { info, warn } from './logging.js';
+import { installedEngine, managedCandidate } from './engine_manager.js';
 
 /**
  * Cordial engine adapter.
@@ -76,6 +77,10 @@ function discoverCandidate() {
   if (explicit) {
     return { kind: 'native', command: explicit, prefix: [], source: 'XENITY_CORDIAL_BIN' };
   }
+  // The engine Xenity installs itself comes first: that is the build this
+  // launcher manages, and it is the one the Install button maintains.
+  const managed = managedCandidate();
+  if (managed) return managed;
   for (const name of BINARY_NAMES) {
     const found = which(name);
     if (found) return { kind: 'native', command: found, prefix: [], source: `PATH (${name})` };
@@ -460,6 +465,7 @@ export function getEngineStatus() {
     kind: candidate?.kind ?? null,
     command: describeCandidate(candidate),
     source: candidate?.source ?? null,
+    managed: installedEngine(),
     version,
     store,
     build: runnableBuild ?? store.newest ?? null,

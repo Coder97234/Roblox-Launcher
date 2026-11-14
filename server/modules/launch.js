@@ -212,7 +212,7 @@ function buildError(step, engine, dependencies, report, started) {
     return {
       what: 'The engine backend Xenity drives is not installed, so Roblox was not started.',
       why: `${engine.engine} runs Roblox's official Android build natively on Linux; without it there is nothing to launch.`,
-      next: `Install it with: ${INSTALL_HINT} — then launch again.`,
+      next: `Press Install on the Play page — Xenity downloads the official Cordial release itself. A system install works too: ${INSTALL_HINT} — then launch again.`,
       code: 'XEN-ENGINE-001',
       step: step.id,
     };

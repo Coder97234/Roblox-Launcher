@@ -1,6 +1,9 @@
 import type {
+  AppImageRelease,
   Diagnostics,
   EngineDoctorResult,
+  EngineInstallState,
+  EngineRelease,
   EngineStatus,
   InstallationState,
   LaunchResult,
@@ -91,6 +94,15 @@ export const api = {
     request<{ started: boolean; instance: { pid: number | null } | null }>('/api/engine/open', {
       method: 'POST',
     }),
+  engineRelease: () => request<EngineRelease>('/api/engine/release'),
+  engineInstall: () => request<EngineInstallState>('/api/engine/install'),
+  startEngineInstall: (force = false) =>
+    request<EngineInstallState>('/api/engine/install', {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    }),
+  removeEngine: () =>
+    request<{ removed: boolean; directory: string }>('/api/engine', { method: 'DELETE' }),
   installation: () => request<InstallationState>('/api/installation'),
   repair: () => request<{ created: string[]; message: string }>('/api/installation/repair', { method: 'POST' }),
   settings: () => request<{ settings: Settings; path: string }>('/api/settings'),
@@ -128,4 +140,5 @@ export const api = {
   logsExport: () => requestText('/api/logs/export'),
   checkUpdates: () => request<UpdateCheck & { history: UpdateCheck[] }>('/api/updates/check', { method: 'POST' }),
   version: () => request<VersionInfo>('/api/version'),
+  release: () => request<AppImageRelease>('/api/release'),
 };

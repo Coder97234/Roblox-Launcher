@@ -29,7 +29,7 @@ function explain(engine, state) {
   if (state === 'engine-missing') {
     return {
       reason: `${ENGINE_NAME} is the engine backend Xenity drives, and it is not installed on this machine.`,
-      next: `Install it with: ${INSTALL_HINT} — then press Recheck. Xenity launches through Cordial; it does not ship a runtime of its own.`,
+      next: `Press Install on this page: Xenity downloads the official Cordial release into its own data directory. An existing install is used too (${INSTALL_HINT}).`,
     };
   }
   if (state === 'build-missing') {

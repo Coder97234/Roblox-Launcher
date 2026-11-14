@@ -21,10 +21,17 @@ import {
   readEngineReport,
   runDoctor,
 } from './modules/cordial.js';
+import {
+  engineInstallStatus,
+  resolveLatestRelease,
+  startEngineInstall,
+  uninstallEngine,
+} from './modules/engine_manager.js';
 import { buildDiagnostics, buildReportText, logsForExport } from './modules/diagnostics.js';
 import { clearCache, storageReport } from './modules/storage.js';
 import { checkForUpdates, versionInfo } from './modules/updater.js';
 import { recentLogs } from './modules/logging.js';
+import { appImageFile, appImageStatus } from './modules/release.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 8000);
@@ -65,6 +72,10 @@ app.get('/api/engine', wrap(() => getEngineStatus()));
 app.get('/api/engine/report', wrap(() => readEngineReport()));
 app.post('/api/engine/doctor', wrap(() => runDoctor()));
 app.post('/api/engine/open', wrap(() => openEngine()));
+app.get('/api/engine/release', wrap(() => resolveLatestRelease()));
+app.get('/api/engine/install', wrap(() => engineInstallStatus()));
+app.post('/api/engine/install', wrap((req) => startEngineInstall({ force: Boolean(req.body?.force) })));
+app.delete('/api/engine', wrap(() => uninstallEngine()));
 app.get('/api/dependencies', wrap(() => checkDependencies()));
 app.get('/api/installation', wrap(() => installationState()));
 app.post('/api/installation/repair', wrap(() => repairInstallation()));
@@ -120,6 +131,36 @@ app.get('/api/logs/export', (req, res) => {
 
 app.post('/api/updates/check', wrap(() => checkForUpdates()));
 app.get('/api/version', wrap(() => versionInfo()));
+
+app.get('/api/release', wrap(() => appImageStatus()));
+app.get('/api/release/appimage', (req, res) => {
+  const build = appImageFile();
+  if (!build) {
+    res.status(404).json({
+      ok: false,
+      error: {
+        what: 'No AppImage has been built here yet.',
+        why: appImageStatus().reason,
+        next: 'Run `npm run appimage`, or download the published one from the repository releases.',
+      },
+    });
+    return;
+  }
+  res.download(build.file, build.name);
+});
+
+// The packaged desktop build (AppImage) serves the compiled UI from this same
+// process, so the window and the API share one origin. In development the Vite
+// dev server serves the UI and proxies /api here, so this block is inert.
+const STATIC_DIR = process.env.XENITY_STATIC_DIR || '';
+if (STATIC_DIR) {
+  app.use(express.static(STATIC_DIR, { index: false }));
+  app.get(/^\/(?!api\/).*/, (req, res, next) => {
+    res.sendFile('index.html', { root: STATIC_DIR }, (cause) => {
+      if (cause) next();
+    });
+  });
+}
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {

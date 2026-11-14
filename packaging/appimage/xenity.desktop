@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Xenity
+GenericName=Roblox Launcher
+Comment=Redefine Your Roblox Experience.
+Exec=xenity %U
+Icon=xenity
+Terminal=false
+Categories=Game;
+StartupWMClass=Xenity
+Keywords=roblox;launcher;gaming;

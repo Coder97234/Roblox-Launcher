@@ -60,6 +60,60 @@ export type EngineInstance = {
   status: string;
 };
 
+export type ManagedEngine = {
+  installed: boolean;
+  binary: string;
+  path: string | null;
+  manifest: Record<string, unknown> | null;
+  runnable: boolean;
+  version?: string | null;
+  tag?: string | null;
+  size?: number | null;
+  installedAt?: string | null;
+  verified?: boolean;
+  reason?: string | null;
+};
+
+export type AppImageRelease = {
+  available: boolean;
+  file: string | null;
+  size: number | null;
+  builtAt: string | null;
+  directory: string;
+  releases: string;
+  latest: string;
+  buildCommand: string;
+  reason: string | null;
+};
+
+export type EngineRelease = {
+  resolved: boolean;
+  tag: string | null;
+  version: string | null;
+  asset: string | null;
+  url: string | null;
+  size: number | null;
+  arch: string;
+  page: string;
+  reason: string | null;
+  checkedAt: string;
+};
+
+export type EngineInstallState = {
+  job: {
+    status: 'idle' | 'running' | 'done' | 'failed';
+    phase: string;
+    release: EngineRelease | null;
+    received: number;
+    total: number | null;
+    percent: number;
+    error: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+  };
+  engine: ManagedEngine;
+};
+
 export type EngineStatus = {
   engine: string;
   project: string;
@@ -69,6 +123,7 @@ export type EngineStatus = {
   kind: string | null;
   command: string | null;
   source: string | null;
+  managed: ManagedEngine;
   version: string | null;
   store: {
     roots: { path: string; exists: boolean; builds: number }[];
